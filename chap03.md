@@ -189,3 +189,253 @@ llvmモジュールは，我々がJITで実行する関数を保存するコン�
 
 ここまでで，4つの基本的な表現を処理してきた．
 llvmでは，これ以上のことを付け加えるのも簡単だ．
+
+## 関数コード生成
+
+プロトタイプ宣言や関数のためのコード生成は、細かいことをたくさん処理しなければならないため、ここまでの表現からコード生成するためのコードよりも、汚くなってしまう。
+しかし、いくつかの重要な点を説明させてもらいたい。
+はじめに、関数宣言のためのコード生成について説明する。
+すなわち、それは、関数の実装と、外部のライブラリにある関数宣言のためのコードである。
+
+```
+Function *PrototypeAST::codegen() {
+  // Make the function type:  double(double,double) etc.
+  std::vector<Type*> Doubles(Args.size(),
+                             Type::getDoubleTy(TheContext));
+  FunctionType *FT =
+    FunctionType::get(Type::getDoubleTy(TheContext), Doubles, false);
+
+  Function *F =
+    Function::Create(FT, Function::ExternalLinkage, Name, TheModule);
+```
+
+この中の2,3行のコードの中に多くの重要な要素が詰め込まれている。
+まず、この関数は、`Value*`ではなく、`Function*`を返す。
+プロトタイプは、関数のための外部とのインタフェースを提供するため、コード生成時には、関数に対応するLLVM Functionを返すと考えると理解しやすい。
+
+`FunctionType::get`の呼び出しは、与えられたプロトタイプのために使われる`FunctionType`を作成する。
+Kaleidoscopeにおけるすべての関数の引数は、`double`型であるため、初めの行は、`LLVM double`型であるNのベクトルを作る。
+そのとき、コードは、（可変長引数ではない、つまり`false`パラメータがこれを意味する）引数としてNという`double`型を取り、戻り値として`double`を一つ返し、関数型を作るための`FunctionType::get`メソッドを使う。
+LLVMにおける型は、定数と同じようにユニークではないといけないため、型はnewするのではなく、LLVMランタイムが作った型をgetすることになる。
+
+最終行で、プロトタイプに対応するIR関数を作る。
+これは、関数に利用される型、リンク、名前に加えて，関数がどのモジュールに挿入されるかを明らかにする．
+"External linkage"は，現在のモジュール外で関数が定義される，あるいは，モジュール外の関数から呼ばれることを意味する．
+ここで渡される名前は，ユーザ指定する名前であり，`TheModule`が指定されるため，この名前は，`TheModule`のシンボルテーブルに登録されることになる．
+
+```
+// Set names for all arguments.
+unsigned Idx = 0;
+for (auto &Arg : F->args())
+  Arg.setName(Args[Idx++]);
+
+return F;
+```
+
+結局，プロトタイプ内で与えられた名前に従って，関数の引数それぞれの名前をセットする．
+このステップは，厳密には必要ではないが，命名規則に一貫性を持たせるとIRを読みやすくし，後に続くコードがその名前を引数として考えられるにする．これは，プロトタイプの解析木で名前を見つけなければならないからそうするという意味ではないのである．
+
+この点において，関数のプロトタイプは，実体を持っていない．
+これは，LLVM IRが関数宣言をどう表現するかを示している．
+Kaleidoscopeにおける`extern`をサポートするにためにこうする必要がある．
+しかし，関数定義は，コードを生成し，関数の実態をアタッチする必要がある．
+
+```
+Function *FunctionAST::codegen() {
+    // First, check for an existing function from a previous 'extern' declaration.
+  Function *TheFunction = TheModule->getFunction(Proto->getName());
+
+  if (!TheFunction)
+    TheFunction = Proto->codegen();
+
+  if (!TheFunction)
+    return nullptr;
+
+  if (!TheFunction->empty())
+    return (Function*)LogErrorV("Function cannot be redefined.");
+```
+
+関数宣言のため，この指定された関数がすでに`TheModule`のシンボルテーブルに存在しないかを確認する．
+このケースの場合には，一つの関数は，すでに`extern`を使って作られている．
+`Module::getFunction`は，事前に関数が存在しない場合は，`null`を返し，`Prototype`から，関数のコードを生成する．
+そうではない場合，まだ実体が作られていない状態などの関数が空であることを明言しないといけない．
+
+```
+// Create a new basic block to start insertion into.
+BasicBlock *BB = BasicBlock::Create(TheContext, "entry", TheFunction);
+Builder.SetInsertPoint(BB);
+
+// Record the function arguments in the NamedValues map.
+NamedValues.clear();
+for (auto &Arg : TheFunction->args())
+  NamedValues[Arg.getName()] = &Arg;
+```
+
+今，`Builder`のセットアップが完了するところまできた．
+初めの行は，"entry"という名前の新しい`basic block`を作る．
+そして，このブロックは，`TheFunction`に挿入される．
+二行目は，builderに新しい命令を新しいブロックの終わりに挿入すべきであることを伝えている．
+LLVMにおけるBasic blocksは，制御フローグラフを定義する関数群の重要なパートとなる．
+現在，我々は，制御フローを持たないので，この関数は，このポイントに，ひとつだけブロックを持つことになる．
+この制御フローの問題は，５章でさらに改善していく．
+
+次，`NamedValues`マップに関数の引数を追加する（はじめにマップをクリアした後）．
+なので，引数は，`VariableExprAST`ノードからアクセス可能なのである．
+
+```
+if (Value *RetVal = Body->codegen()) {
+  // Finish off the function.
+  Builder.CreateRet(RetVal);
+
+  // Validate the generated code, checking for consistency.
+  verifyFunction(*TheFunction);
+
+  return TheFunction;
+}
+```
+
+一度，挿入するべきポイントがセットアップされ，`NamedValues`マップにデータが入力されると，次に，関数のルート表現のための`codegen()`を呼び出す．
+もしエラーがなければ，このコードは，エントリーブロックに表現を計算するためのコードを出力し，計算すべき値を返す．
+エラーを仮定しないとき，我々は，関数を完結するLLVM ret 命令を作成する．
+一度，関数が作られると，我々は，LLVMから提供される`verifyFunction`をコールする．
+この関数は，我々の作ったコンパイラがすべてを正しく実行しているかをチェックするため，生成されたコードの多様な一貫性のあるチェックを実行する．
+この関数は，色々なバグを検出してくれるので，非常に重要である．
+一度，関数のチェックが終了すると，それを返す．
+
+```
+    // Error reading body, remove function.
+    TheFunction->eraseFromParent();
+    return nullptr;
+}
+```
+
+ここでやり残したことは，エラーハンドリングである．
+簡単のため，我々は，`eraseFromParent`を呼び出して，愚直に関数自体を消すことでエラーをハンドリングすることにする．
+これは，ユーザにコードが出てくる前にミスタイプした関数を再定義することを許してしまう．つまり，エラーが出た関数を消さない場合，シンボルテーブルは生き続け，その後に再定義できなくしてしまう．
+
+このコードには，バグがある．
+つまり，`FunctionAST::codegen()`がすでにあるIR関数を見つけた場合，定義自身のプロトタイプにそって署名が正しいかをチェックしない．
+これは，関数定義の署名について，関数の引数名が間違っているような原因でコード生成に失敗するような，早い段階で`extern`で宣言された関数の優先度が高くなる．
+これを修正する方法は，たくさんある．
+以下のようなコードをちゃんと処理できる必要があるのだが，その修正方法を考えてほしい．
+
+```
+extern foo(a);     # ok, defines foo.
+def foo(b) b;      # Error: Unknown variable name. (decl using 'a' takes precedence).
+```
+
+## ドライバーの更新・・・まとめ
+
+ここでは，LLVMに対してのコード生成を十分に理解したとは言えない．
+IRコールを色々，見てきたというだけである．
+サンプルコードに，`HandleDefinition`, `HandleExtern`などの関数を加えることで，LLVM IRをダンプルすることができる．
+これは，シンプルな関数に対するLLVM IRを見ていくのに非常に便利である．
+例えば，以下のような実行結果が得られる．
+
+```
+ready> 4+5;
+Read top-level expression:
+define double @0() {
+entry:
+  ret double 9.000000e+00
+}
+```
+
+パーサがトップレベルの表現で無名関数をどう処理するかを示している．
+これは，次章で，JITをサポートするときに扱いやすい問題でもある．
+コードは，文学的に説明しやすいだけでなく，`IRBuilder`によって定数が畳まれる以外の最適化が実行されていない．
+次章では，ここに最適化を加えていくことになる．
+
+```
+ready> def foo(a b) a*a + 2*a*b + b*b;
+Read function definition:
+define double @foo(double %a, double %b) {
+entry:
+  %multmp = fmul double %a, %a
+  %multmp1 = fmul double 2.000000e+00, %a
+  %multmp2 = fmul double %multmp1, %b
+  %addtmp = fadd double %multmp, %multmp2
+  %multmp3 = fmul double %b, %b
+  %addtmp4 = fadd double %addtmp, %multmp3
+  ret double %addtmp4
+}
+```
+
+これは，単純な算術計算の例である．
+LLVM builderで呼び出した関数と，実際に出力される命令が似ていることに注意してほしい．
+
+```
+ready> def bar(a) foo(a, 4.0) + bar(31337);
+Read function definition:
+define double @bar(double %a) {
+entry:
+  %calltmp = call double @foo(double %a, double 4.000000e+00)
+  %calltmp1 = call double @bar(double 3.133700e+04)
+  %addtmp = fadd double %calltmp, %calltmp1
+  ret double %addtmp
+}
+```
+
+これは，関数呼び出しの例である．
+この関数の呼び出しには，多様時間がかかる．
+ここに，将来的に，再帰を使いやすくするため，条件付きの制御フローを追加していく．
+
+```
+ready> extern cos(x);
+Read extern:
+declare double @cos(double)
+
+ready> cos(1.234);
+Read top-level expression:
+define double @1() {
+entry:
+  %calltmp = call double @cos(double 1.234000e+00)
+  ret double %calltmp
+}
+```
+
+これは，外部の`cos`関数を呼び出す例である．
+
+```
+ready> ^D
+; ModuleID = 'my cool jit'
+
+define double @0() {
+entry:
+  %addtmp = fadd double 4.000000e+00, 5.000000e+00
+  ret double %addtmp
+}
+
+define double @foo(double %a, double %b) {
+entry:
+  %multmp = fmul double %a, %a
+  %multmp1 = fmul double 2.000000e+00, %a
+  %multmp2 = fmul double %multmp1, %b
+  %addtmp = fadd double %multmp, %multmp2
+  %multmp3 = fmul double %b, %b
+  %addtmp4 = fadd double %addtmp, %multmp3
+  ret double %addtmp4
+}
+
+define double @bar(double %a) {
+entry:
+  %calltmp = call double @foo(double %a, double 4.000000e+00)
+  %calltmp1 = call double @bar(double 3.133700e+04)
+  %addtmp = fadd double %calltmp, %calltmp1
+  ret double %addtmp
+}
+
+declare double @cos(double)
+
+define double @1() {
+entry:
+  %calltmp = call double @cos(double 1.234000e+00)
+  ret double %calltmp
+}
+```
+
+今作っているデモアプリを終了すると，アプリは，今作っているモジュールの全体のIRをダンプする．
+ここで，それぞれに参照しあう，すべての関数の全体像を確認できる．
+
+ここで，Kaleidoscopeの３章はおしまいです．
+次は，JITによるコード生成と，コードの最適化について説明していきます．
