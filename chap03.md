@@ -189,3 +189,27 @@ llvmモジュールは，我々がJITで実行する関数を保存するコン�
 
 ここまでで，4つの基本的な表現を処理してきた．
 llvmでは，これ以上のことを付け加えるのも簡単だ．
+
+## 関数コード生成
+
+プロトタイプ宣言や関数のためのコード生成は、細かいことをたくさん処理しなければならないため、ここまでの表現からコード生成するためのコードよりも、汚くなってしまう。
+しかし、いくつかの重要な点を説明させてもらいたい。
+はじめに、関数宣言のためのコード生成について説明する。
+すなわち、それは、関数の実装と、外部のライブラリにある関数宣言のためのコードである。
+
+```
+Function *PrototypeAST::codegen() {
+  // Make the function type:  double(double,double) etc.
+  std::vector<Type*> Doubles(Args.size(),
+                             Type::getDoubleTy(TheContext));
+  FunctionType *FT =
+    FunctionType::get(Type::getDoubleTy(TheContext), Doubles, false);
+
+  Function *F =
+    Function::Create(FT, Function::ExternalLinkage, Name, TheModule);
+```
+
+この中の2,3行のコードの中に多くの重要な要素が詰め込まれている。
+まず、この関数は、`Value*`ではなく、`Function*`を返す。
+プロトタイプは、関数のための外部とのインタフェースを提供するため、コード生成時には、関数に対応するLLVM Functionを返すと考えると理解しやすい。
+
