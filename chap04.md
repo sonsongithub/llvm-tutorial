@@ -530,6 +530,20 @@ clang++ -g toy.cpp `llvm-config --cxxflags --ldflags --system-libs --libs core m
 
 もし，Linuxでコンパイルする場合は，`-rdynamic`オプションを加える必要がある．これは，ランタイム時に正しく外部関数を解決するためである．
 
+### ビルド方法・・・訳者追記
+ビルドには，llvmのソースに含まれる`Kaleidoscope`の[ソースコード](hhttps://github.com/llvm-mirror/llvm/blob/release_70/examples/Kaleidoscope/)の中のヘッダが必要である．
+ヘッダは，[ここ](https://github.com/llvm-mirror/llvm/blob/release_70/examples/Kaleidoscope/include/)にある．
+この最新版(現状，brewでインストールされるllvmはv7.0なので，`release_70`のブランチ)のヘッダをダウンロードする．
+しかし，このままでは，ビルドできない環境もあるようだ．
+そのときは，`llvm-config`のオプションに`orcjit`を加えるとよいようだ[^https://twitter.com/giginet/status/1080744056722878464]．
+ゆえに，コードリストは，以下のコマンドでビルドするとよい．
+
+```
+clang++ -g tutorial04.cpp `llvm-config --cxxflags --ldflags --system-libs --libs core orcjit mcjit native` -O3 -o tutorial04
+```
+
+### コードリスト
+
 ```
 #include "../include/KaleidoscopeJIT.h"
 #include "llvm/ADT/APFloat.h"
