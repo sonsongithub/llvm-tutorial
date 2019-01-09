@@ -12,7 +12,8 @@ clang++ --std=c++14 ./sample.cpp `llvm-config --cxxflags --ldflags --libs --libf
 2. [Chapter 02](https://github.com/sonsongithub/llvm-tutorial/blob/master/chap02.md)
 3. [Chapter 03](https://github.com/sonsongithub/llvm-tutorial/blob/master/chap03.md)
 3. [Chapter 04](https://github.com/sonsongithub/llvm-tutorial/blob/master/chap04.md)
-3. [Chapter 05](https://github.com/sonsongithub/llvm-tutorial/blob/master/chap05.md), to be written.
+3. [Chapter 05](https://github.com/sonsongithub/llvm-tutorial/blob/master/chap05.md)
+3. [Chapter 06](https://github.com/sonsongithub/llvm-tutorial/blob/master/chap06.md)
 
 ## License
 このリポジトリは，LLVMのソースコード，ドキュメントをベースに作成し，[LLVM Release License](http://releases.llvm.org/7.0.0/LICENSE.TXT)に従い，コンテンツを作成しています．
