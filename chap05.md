@@ -666,4 +666,11 @@ exit条件の値に基づき，ループを再び実行するか，ループを�
 次の章では，少し冒険することになるが，ユーザ定義する演算子を追加していく．
 
 ## コードリストのビルド方法
-to be written.
+ビルドコマンド．
+
+```
+clang++ -g tutorial05.cpp `llvm-config --cxxflags --ldflags --system-libs --libs core orcjit mcjit native` -O3 -o tutorial05
+```
+
+### コードリスト
+[ソース](https://github.com/sonsongithub/llvm-tutorial/blob/master/tutorial05.cpp)
