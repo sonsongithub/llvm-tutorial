@@ -501,8 +501,8 @@ def mandelconverge(real imag)
 この`z = z2 + c`という関数は，マンデルブロー集合の計算のための基本であり，美しく，小さな生命とも言える．
 我々のマンデル収束関数は，その関数が複雑な軌道から脱出するために必要な反復回数を返す．この反復回数は，最大で２５５である．
 
-
-This is not a very useful function by itself, but if you plot its value over a two-dimensional plane, you can see the Mandelbrot set. Given that we are limited to using putchard here, our amazing graphical output is limited, but we can whip together something using the density plotter above:
+これは，それ自身であまり使いやすい関数ではないが，２次元平面上に値をプロットするなら，マンデルブロー集合を可視化することができる．
+ここでは，`putchard`を使うように制限されているので，このコードの画像の出力も制限されているが，プロットする密度を使って，それを止め上げられる．
 
 ```
 # Compute and plot the mandelbrot set with the specified 2 dimensional range
@@ -521,7 +521,7 @@ def mandel(realstart imagstart realmag imagmag)
              imagstart, imagstart+imagmag*40, imagmag);
 ```
 
-Given this, we can try plotting out the mandelbrot set! Lets try it out:
+このコードで，マンデルブロー集合を出力してみよう．
 
 ```
 ready> mandel(-2.3, -1.3, 0.05, 0.07);
@@ -656,12 +656,20 @@ Evaluated to 0.000000
 ready> ^D
 ```
 
-At this point, you may be starting to realize that Kaleidoscope is a real and powerful language. It may not be self-similar :), but it can be used to plot things that are!
-With this, we conclude the “adding user-defined operators” chapter of the tutorial. We have successfully augmented our language, adding the ability to extend the language in the library, and we have shown how this can be used to build a simple but interesting end-user application in Kaleidoscope. At this point, Kaleidoscope can build a variety of applications that are functional and can call functions with side-effects, but it can’t actually define and mutate a variable itself.
-Strikingly, variable mutation is an important feature of some languages, and it is not at all obvious how to add support for mutable variables without having to add an “SSA construction” phase to your front-end. In the next chapter, we will describe how you can add variable mutation without building SSA in your front-end.
+ここで，Kaleidoscopeが実際に強力な言語であることが理解され始めたのではないかと思う．
+自己相関をものものではないが，何かが出力されているようだ．
+これをもって，チュートリアルのユーザ定義演算子の追加を終えたいと思う．
+言語を拡張する機能を追加し，作ってきた言語の拡張に成功してきた．
+そして，Kaleidoscopeを使って，シンプルかつおもしろいエンドユーザ向けのアプリケーションを作る方法を紹介した．
 
-## Full Code Listing
-Here is the complete code listing for our running example, enhanced with the support for user-defined operators. To build this example, use:
+Kaleidoscopeは，機能的かつ副作用を持つ関数を呼び出せる多様なアプリケーションをビルドできるが，変数自身を実際に定義したり，変化させられない．
+際立って，`variable mutation`は，いくつかの言語の重要な機能であり，あなたが実装しているフロントエンドに`SSA construction`を追加する必要性なしに`mutable variable`をサポートする方法は，まったく明らかではない．
+次の章で，フロントエンドに`SSA`をビルドせずに`variable mutation`をどうやって追加するかを説明する．
 
-On some platforms, you will need to specify -rdynamic or -Wl,–export-dynamic when linking. This ensures that symbols defined in the main executable are exported to the dynamic linker and so are available for symbol resolution at run time. This is not needed if you compile your support code into a shared library, although doing that will cause problems on Windows.
-Here is the code:
+## コードリスト
+ここにユーザ定義演算子をサポートしたサンプルのコードを示す．
+ビルド方法は，以下である．
+
+いくつかのプラットホームでは，リンク時に`-rdynamic`，`-Wl`, `–export-dynamic`を指定する必要がある．
+これは，実行可能ファイルで定義されたシンボルがダイナミックリンカにエクスポートされ，ランタイム時にシンボル名を解決できるようにするものだ．
+もし，コードが共有ライブラリにコンパイルされるなら必要はないが，Windowsの場合，そうすると，問題が起こることがある．
