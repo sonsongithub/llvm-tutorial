@@ -105,9 +105,9 @@ entry:
   br i1 %Condition, label %cond_true, label %cond_false
 
 cond_true:
-	; %X.0に@Gをロードする
+  ; %X.0に@Gをロードする
   %X.0 = load i32* @G
-	; allocaで確保したメモリ領域に%X.0の値をロードする
+  ; allocaで確保したメモリ領域に%X.0の値をロードする
   store i32 %X.0, i32* %X   ; Update X
   ; %cond_nextブランチへ移動する
   br label %cond_next
@@ -118,7 +118,7 @@ cond_false:
   br label %cond_next
 
 cond_next:
-	; メモリ領域にある%Xから値を戻り値となる%X.2にロードする．
+  ; メモリ領域にある%Xから値を戻り値となる%X.2にロードする．
   %X.2 = load i32* %X       ; Read X
   ret i32 %X.2
 }
@@ -172,21 +172,25 @@ cond_next:
 これらの特徴のすべてを満たすことは，ほとんどの命令型言語にとって，簡単なことだ．そして，ここでは，それをKaleidoscopeでやってみせよう．
 ここで，あなたが最後にしてくる質問は，こんな感じではないだろうか．
 「私はフロントエンドのために，こんなナンセンスなことをわざわざやらないといけないのか？」
-
 `mem2reg`の最適化パスを使わず，SSA命令を直接使うのはよくないのだろうか．結論から言うと，そうしない極端によい理由がない限り，SSA形式をビルドするためにこの技術を使うことを強く勧める．
 
-1. よく，検証，テストされている： clangは，この技術をローカルのmutableのために使っている．LLVMを使うもっとも有名なコンパイラのほとんどは，それらの変数のハンドリングに，この技術を使っている．バグは，すぐに発見されるし，すぐに修正される．
-2. めちゃくちゃ速い：`mem2reg`は， has a number of special cases that make it fast in common cases as well as fully general. For example, it has fast-paths for variables that are only used in a single block, variables that only have one assignment point, good heuristics to avoid insertion of unneeded phi nodes, etc.
-3. Needed for debug info generation: Debug information in LLVM relies on having the address of the variable exposed so that debug info can be attached to it. This technique dovetails very naturally with this style of debug info.
+1. よく，検証・テストされている： clangは，この技術をローカルのmutableのために使っている．LLVMを使うもっとも有名なコンパイラのほとんどは，それらの変数のハンドリングに，この技術を使っている．バグは，すぐに発見されるし，すぐに修正される．
+2. めちゃくちゃ速い：`mem2reg`は，十分に一般的なケースと同様に共通のケースにおいて，`mem2reg`の処理を高速化する特殊なケースをたくさんもっている．例えば，一つのブロックでのみ使われる変数や一度だけしか代入しな変数のための速いパス，使われないphiノードの挿入を避けるヒューリスティクなどが実装されている．
+3. デバッグのための情報が必要：LLVMにおけるデバッグ情報は，変数のアドレスを持っていることを当てにしているため，デバッグ情報は，そのアドレスにアタッチされる．この技術は，デバッグ情報のこのスタイルに自然に組み込まれる．
 
-If nothing else, this makes it much easier to get your front-end up and running, and is very simple to implement. Let’s extend Kaleidoscope with mutable variables now!
+他に何もなければ，今実装しているフロントエンドを起動させるのを，この技術は，より簡単にし，とても，実装しやすい．
+さぁ，Kaleidoscopeにmutableを実装してみよう．
 
-## Mutable Variables in Kaleidoscope
-Now that we know the sort of problem we want to tackle, let’s see what this looks like in the context of our little Kaleidoscope language. We’re going to add two features:
+## Kaleidoscopeのmutable
+ここで，ソート問題を解こうとしているとき，Kaleidoscopeという言語のコンテキストで，これが何に似ているのかを見ていこう．
+今から，Kaleidoscopeに二つの機能を追加する．
 
-The ability to mutate variables with the ‘=’ operator.
-The ability to define new variables.
-While the first item is really what this is about, we only have variables for incoming arguments as well as for induction variables, and redefining those only goes so far :). Also, the ability to define new variables is a useful thing regardless of whether you will be mutating them. Here’s a motivating example that shows how we could use these:
+1. `=`演算子で変数の値を変更する機能．
+2. 新しい変数を定義する機能．
+
+一つ目は，ここでの本質ではあるが，現在，宣言される変数と，関数の引数としての変数，それらを再定義する，程度のことしかできない．
+さらに，新しい変数を定義する能力は，mutableを使えるようにするかと無関係に便利だ．
+これの例を示そう．
 
 ```
 # Define ':' for sequencing: as a low-precedence operator that ignores operands
@@ -213,16 +217,30 @@ def fibi(x)
 fibi(10);
 ```
 
-In order to mutate variables, we have to change our existing variables to use the “alloca trick”. Once we have that, we’ll add our new operator, then extend Kaleidoscope to support new variable definitions.
+変数の更新を許可するため，我々は，既存の変数が`alloca`トリックを使うように変更しなければならない．
+一度，それをやると，新しい演算子を追加できるし，新しい変数の定義もKaleidoscopeがサポートするように拡張できるようになる．
 
-## Adjusting Existing Variables for Mutation
-The symbol table in Kaleidoscope is managed at code generation time by the ‘NamedValues’ map. This map currently keeps track of the LLVM “Value*” that holds the double value for the named variable. In order to support mutation, we need to change this slightly, so that NamedValues holds the memory location of the variable in question. Note that this change is a refactoring: it changes the structure of the code, but does not (by itself) change the behavior of the compiler. All of these changes are isolated in the Kaleidoscope code generator.
+## 既存の変数を更新できるように調整する
+Kaleidoscopeのシンボルテーブルは，`NamedValues`マップによって，コード生成時間に制御される．
+このマップは，今の所，名前をつけた変数のための`double`型の値を保持するLLVMの`Value*`型を追跡し続ける．
+mutateをサポートするために，これを多少変化させる必要があるため，`NamedValues`がメモリの位置を保持する．
+この変更は，リファクタリング程度だ．
+つまり，コードの構造は変えるが，コンパイラの振る舞い自体を変更するわけではない．
+これらのすべての変更は，Kaleidoscopeのコード生成器に，隔離される．
 
-At this point in Kaleidoscope’s development, it only supports variables for two things: incoming arguments to functions and the induction variable of ‘for’ loops. For consistency, we’ll allow mutation of these variables in addition to other user-defined variables. This means that these will both need memory locations.
+現時点のKaleidoscopeでは，関数への引数，`for`文の一時変数の二つのことをサポートする．
+一貫性のため，他のユーザ定義変数に加えて，これらの変数のmutateも許容する．
+この一貫性は，これらの両方のメモリの位置を必要とすることを意味する．
 
-To start our transformation of Kaleidoscope, we’ll change the NamedValues map so that it maps to AllocaInst* instead of Value*. Once we do this, the C++ compiler will tell us what parts of the code we need to update:
+Kaleidoscopeの変更を始めるにあたって，`NamedValues`マップを，`Value*`の代わりに`AllocaInst*`にマップするように変更する．
+一度，これをやると，C++コンパイラが，コードのどの部分を変えるべきなのかを教えてくれる（ちょっと，待て，コンパイラのエラーが出たところを変えろということか・・・・メチャクチャやな）．
 
+```
 static std::map<std::string, AllocaInst*> NamedValues;
+```
+
+`alloca`を作る必要があるため，`alloca`は，関数のエントリブロックに作られたことを確認する補助関数を利用する．
+
 Also, since we will need to create these allocas, we’ll use a helper function that ensures that the allocas are created in the entry block of the function:
 
 ```
