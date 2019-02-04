@@ -241,8 +241,6 @@ static std::map<std::string, AllocaInst*> NamedValues;
 
 `alloca`を作る必要があるため，`alloca`は，関数のエントリブロックに作られたことを確認する補助関数を利用する．
 
-Also, since we will need to create these allocas, we’ll use a helper function that ensures that the allocas are created in the entry block of the function:
-
 ```
 /// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of
 /// the function.  This is used for mutable variables etc.
@@ -255,9 +253,12 @@ static AllocaInst *CreateEntryBlockAlloca(Function *TheFunction,
 }
 ```
 
-This funny looking code creates an IRBuilder object that is pointing at the first instruction (.begin()) of the entry block. It then creates an alloca with the expected name and returns it. Because all values in Kaleidoscope are doubles, there is no need to pass in a type to use.
+これは，可愛く見えるコードは，エントリブロックのはじめの命令（`.begin()`）を指している`IRBuilder`オブジェクトを生成する．
+そのオブジェクトは，期待される名前で`alloca`を生成し，それを返す．
+Kaleidoscopeにおけるすべての値は，`double` 型なので，使われるべき型を渡す必要はない．
 
-With this in place, the first functionality change we want to make belongs to variable references. In our new scheme, variables live on the stack, so code generating a reference to them actually needs to produce a load from the stack slot:
+はじめの機能的な変更は，変数への参照に関するものである．
+我々の新しいスキームでは，変数はスタック上で保存され，それらへのリファレンスを生成するコードは，スタックスロットからロードするコードを必要とする．
 
 ```
 Value *VariableExprAST::codegen() {
@@ -271,7 +272,9 @@ Value *VariableExprAST::codegen() {
 }
 ```
 
-As you can see, this is pretty straightforward. Now we need to update the things that define the variables to set up the alloca. We’ll start with ForExprAST::codegen() (see the full code listing for the unabridged code):
+見ればわかるように，これは，率直なやり方だ．
+今，`alloca`をセットアップするための変数を定義する何かを更新する必要がある．
+はじめに，`ForExprAST::codegen()`から始めよう（省略されてないコードは，最後のコードリストを参照されたい）．
 
 ```
 Function *TheFunction = Builder.GetInsertBlock()->getParent();
@@ -301,9 +304,10 @@ Builder.CreateStore(NextVar, Alloca);
 ...
 ```
 
-This code is virtually identical to the code before we allowed mutable variables. The big difference is that we no longer have to construct a PHI node, and we use load/store to access the variable as needed.
-
-To support mutable argument variables, we need to also make allocas for them. The code for this is also pretty simple:
+このコードは，本質的に，mutableを許容する前のコードと同じである．
+大きな違いは，もはやphiノードを構築しておらず，必要な時に変数にアクセスするために`load/store`を使っていることである．
+mutable引数をサポートするため，それらを作るために，`alloca`を使う必要がある．
+そのコードは，簡単で以下のようになる．
 
 ```
 Function *FunctionAST::codegen() {
@@ -327,9 +331,10 @@ Function *FunctionAST::codegen() {
     ...
 ```
 
-For each argument, we make an alloca, store the input value to the function into the alloca, and register the alloca as the memory location for the argument. This method gets invoked by FunctionAST::codegen() right after it sets up the entry block for the function.
+それぞれの引数のために，`alloca`を作り，`alloca`へ関数に入力する値を保存し，引数として，メモリの位置として`alloca`を登録する．
+この方法は，関数ためにエントリブロックがセットアップされた後すぐに`FunctionAST::codegen()`によって，起動される．
 
-The final missing piece is adding the mem2reg pass, which allows us to get good codegen once again:
+最後のピースは，`mem2reg`パスの追加だ．
 
 ```
 // Promote allocas to registers.
@@ -341,7 +346,9 @@ TheFPM->add(createReassociatePass());
 ...
 ```
 
-It is interesting to see what the code looks like before and after the mem2reg optimization runs. For example, this is the before/after code for our recursive fib function. Before the optimization:
+`mem2reg`のオプティマイザを走らせる前と後でコードを見比べてみるとおもしろい．
+例えば，これは，再帰的なフィボナッチ数列関数の，最適化前後のコードだ．
+最適化前のコードは以下のようになる．
 
 ```
 define double @fib(double %x) {
@@ -373,9 +380,13 @@ ifcont:     ; preds = %else, %then
 }
 ```
 
-Here there is only one variable (x, the input argument) but you can still see the extremely simple-minded code generation strategy we are using. In the entry block, an alloca is created, and the initial input value is stored into it. Each reference to the variable does a reload from the stack. Also, note that we didn’t modify the if/then/else expression, so it still inserts a PHI node. While we could make an alloca for it, it is actually easier to create a PHI node for it, so we still just make the PHI.
+ここでは，入力のための`x`しか，変数がないが，ここで使っている極端にシンプルなコード生成戦略を理解できると思う．
+エントリブロックでは，`alloca`が生成され，初期値がそれに保存される．
+その変数への参照は，スタックからリロードされる．
+`if/then/else`は，まったく変更されないし，phiノードも未だに存在している．
+一方，そのために`alloca`を作れる一方で，phiノードを作る方が明らかに簡単で，phiノードをただ作っているだけである．
 
-Here is the code after the mem2reg pass runs:
+ここに，`mem2reg`のパスを走らせた後のコードを紹介しよう．
 
 ```
 define double @fib(double %x) {
@@ -402,9 +413,11 @@ ifcont:     ; preds = %else, %then
 }
 ```
 
-This is a trivial case for mem2reg, since there are no redefinitions of the variable. The point of showing this is to calm your tension about inserting such blatent inefficiencies :).
+これは，`mem2reg`にとって，他愛もないコードだ．
+なぜなら，変数の再定義もまったくないためである．
+これを見せることのポイントは，あなたが，そのような遅いコードを挿入することについて，注意がいっていることを収めるためだ:)．
 
-After the rest of the optimizers run, we get:
+最適化後の残りの部分は，こうなる．
 
 ```
 define double @fib(double %x) {
@@ -427,12 +440,15 @@ ifcont:
 }
 ```
 
-Here we see that the simplifycfg pass decided to clone the return instruction into the end of the ‘else’ block. This allowed it to eliminate some branches and the PHI node.
+`simplifycfg`パスは，`else`ブロックの最後に`return`命令を複製することを決めることを理解できる．
+これは，いくつかのブランチやphiノードを除去することを許容する．
 
-Now that all symbol table references are updated to use stack variables, we’ll add the assignment operator.
+ここで，すべてのシンボルテーブルの参照が，スタック変数を使うために更新された．次に，代入演算子を追加しよう．
 
-## New Assignment Operator
-With our current framework, adding a new assignment operator is really simple. We will parse it just like any other binary operator, but handle it internally (instead of allowing the user to define it). The first step is to set a precedence:
+## 新しく追加される代入演算子
+今手元にあるフレームワークに，新しく代入演算子を追加するのは，至ってシンプルだ．
+他の二項演算子と同じように，それをパースし，内部的に処理すればよい（ユーザに定義させる代わりに）．
+はじめに，優先順位を決める．
 
 ```
 int main() {
@@ -444,7 +460,8 @@ int main() {
   BinopPrecedence['-'] = 20;
 ```
 
-Now that the parser knows the precedence of the binary operator, it takes care of all the parsing and AST generation. We just need to implement codegen for the assignment operator. This looks like:
+パーサは，すでに二項演算子をどう扱えば良いか知っているので，パーサにパースと抽象構文木の生成を任せる．
+やるべきことは，代入演算子のための`codegen`の実装だけである．
 
 ```
 Value *BinaryExprAST::codegen() {
@@ -456,7 +473,9 @@ Value *BinaryExprAST::codegen() {
       return LogErrorV("destination of '=' must be a variable");
 ```
 
-Unlike the rest of the binary operators, our assignment operator doesn’t follow the “emit LHS, emit RHS, do computation” model. As such, it is handled as a special case before the other binary operators are handled. The other strange thing is that it requires the LHS to be a variable. It is invalid to have “(x+1) = expr” - only things like “x = expr” are allowed.
+二項演算子の他のものとは違って，代入演算子は，"左辺を発行し，右辺を発行し，計算を実行する"というモデルに従わない．
+これは，他の二項演算子を取り扱う前に，例外として扱う必要がある．
+その他の変わったことといえば，左辺が常に変数でなければならないということである．つまり，`(x+1) = expr`のような式は許されないが，`x = expr`のような式は許される．
 
 ```
   // Codegen the RHS.
@@ -475,9 +494,11 @@ Unlike the rest of the binary operators, our assignment operator doesn’t follo
 ...
 ```
 
-Once we have the variable, codegen’ing the assignment is straightforward: we emit the RHS of the assignment, create a store, and return the computed value. Returning a value allows for chained assignments like “X = (Y = Z)”.
+一度，変数を持ってしまえば，代入のための`codegen`を実行することは，小細工を必要としない．
+つまり，右辺の代入を発行し，保存し，計算した結果を返せばよいのである．
+戻りは，`X = (Y = Z)`というように，再帰的に書いても構わない．
 
-Now that we have an assignment operator, we can mutate loop variables and arguments. For example, we can now run code like this:
+代入演算子を導入した今，我々は，ループ変数や引数もmutateにすることができる．例えば，以下のように，コードを実行できる．
 
 ```
 # Function to print a double.
@@ -495,10 +516,16 @@ def test(x)
 test(123);
 ```
 
-When run, this example prints “123” and then “4”, showing that we did actually mutate the value! Okay, we have now officially implemented our goal: getting this to work requires SSA construction in the general case. However, to be really useful, we want the ability to define our own local variables, let’s add this next!
+これを実行すると，このサンプルは，`123`を表示し，その後，`4`を表示する．
+つまり，変数が変更される様を表示しているのである．
+ここで，ゴールまで実装できた．
+これを動かすには，一般のケースで，SSA構成を必要とする．
+しかし，本当に使いやすくするためには，自分のローカル変数を定義できるようにしないといけない．
 
-## User-defined Local Variables
-Adding var/in is just like any other extension we made to Kaleidoscope: we extend the lexer, the parser, the AST and the code generator. The first step for adding our new ‘var/in’ construct is to extend the lexer. As before, this is pretty trivial, the code looks like this:
+## ユーザ定義のローカル変数
+他の拡張と同じように`var/in`をKaleidoscopeに追加するのは，lexer，パーサ，抽象構文木，コード生成器に変更を加えなければならない．
+新しく`var/in`を追加するためのはじめの一歩は，lexerの拡張である．
+ここまでと同じように，この変更は大したものではない．
 
 ```
 enum Token {
@@ -522,7 +549,7 @@ static int gettok() {
 ...
 ```
 
-The next step is to define the AST node that we will construct. For var/in, it looks like this:
+次に，抽象構文木のノードを定義する．
 
 ```
 /// VarExprAST - Expression class for var/in
@@ -539,9 +566,13 @@ public:
 };
 ```
 
-var/in allows a list of names to be defined all at once, and each name can optionally have an initializer value. As such, we capture this information in the VarNames vector. Also, var/in has a body, this body is allowed to access the variables defined by the var/in.
+`var/in`は，名前のリストで，一度に変数を定義できるようにし，オプションで初期化もできるようにする．
+`VarNames` vectorに，この情報を保存する．
+`var/in`は，本体を持つ．
+この本体は，`var/in`によって定義される変数にアクセスできる．
 
-With this in place, we can define the parser pieces. The first thing we do is add it as a primary expression:
+ここで，パーサの一部も定義する．
+ここでやる最初のことは，主表現として，それを追加することである．
 
 ```
 /// primary
@@ -571,7 +602,7 @@ static std::unique_ptr<ExprAST> ParsePrimary() {
 }
 ```
 
-Next we define ParseVarExpr:
+次に，関数`ParseVarExpr`を実装する．
 
 ```
 /// varexpr ::= 'var' identifier ('=' expression)?
@@ -610,7 +641,7 @@ while (1) {
 }
 ```
 
-Once all the variables are parsed, we then parse the body and create the AST node:
+一度，すべての変数がパースされると，その本体もそのあとにパースし，抽象構文木のノードを生成する．
 
 ```
   // At this point, we have to have 'in'.
@@ -627,7 +658,8 @@ Once all the variables are parsed, we then parse the body and create the AST nod
 }
 ```
 
-Now that we can parse and represent the code, we need to support emission of LLVM IR for it. This code starts out with:
+今，コードをパースし，表現できた．
+次に，それに対応するLLVM IRを発行できる必要がある．
 
 ```
 Value *VarExprAST::codegen() {
@@ -641,7 +673,8 @@ Value *VarExprAST::codegen() {
     ExprAST *Init = VarNames[i].second.get();
 ```
 
-Basically it loops over all the variables, installing them one at a time. For each variable we put into the symbol table, we remember the previous value that we replace in OldBindings.
+基本的に，すべての変数をループし，同時にそれらをセットしていく．
+それぞれの変数を，シンボルテーブルに代入し，に入っていた事前の値を捨て，それを，`OldBindings`にセットする．
 
 ```
   // Emit the initializer before adding the variable to scope, this prevents
@@ -670,7 +703,9 @@ Basically it loops over all the variables, installing them one at a time. For ea
 }
 ```
 
-There are more comments here than code. The basic idea is that we emit the initializer, create the alloca, then update the symbol table to point to it. Once all the variables are installed in the symbol table, we evaluate the body of the var/in expression:
+この部分は，コードよりもコメントの方が多い．
+基本的なアイデアは，初期化し，`alloca`を作成し，シンボルテーブルがそれを指すように更新することである．
+一度，すべての変数がシンボルテーブルにセットされると，`var/in`の本体を評価する．
 
 ```
 // Codegen the body, now that all vars are in scope.
@@ -688,12 +723,16 @@ Finally, before returning, we restore the previous variable bindings:
 }
 ```
 
-The end result of all of this is that we get properly scoped variable definitions, and we even (trivially) allow mutation of them :).
+これのすべての最後の結果は，正しく範囲に限定された変数の定義を得て，それらの変更を許容することである．
 
-With this, we completed what we set out to do. Our nice iterative fib example from the intro compiles and runs just fine. The mem2reg pass optimizes all of our stack variables into SSA registers, inserting PHI nodes where needed, and our front-end remains simple: no “iterated dominance frontier” computation anywhere in sight.
+ここまでで，すべてを実装できた．
+いい感じのフィボナッチ数列のサンプルは，コンパイルして，実行できるはずだ．
+`mem2reg`パスは，SSAレジスタにスタック変数のすべてを最適化し，必要に応じて，phiノードを挿入し，フロントエンドは変わらずシンプルなままだ．
+"iterated dominance frontier"計算？は，もうどこにも見当たらない．
 
-## Full Code Listing
-Here is the complete code listing for our running example, enhanced with mutable variables and var/in support. To build this example, use:
+## コードリスト
+ここに完全なコードリストを示す．
+以下のようにビルドするとよい．
 
 ```
 # Compile
