@@ -1,25 +1,33 @@
-# Kaleidoscope: Compiling to Object Code
-## Introduction
-Welcome to Chapter 8 of the “Implementing a language with LLVM” tutorial. This chapter describes how to compile our language down to object files.
-## Choosing a target
-LLVM has native support for cross-compilation. You can compile to the architecture of your current machine, or just as easily compile for other architectures. In this tutorial, we’ll target the current machine.
-To specify the architecture that you want to target, we use a string called a “target triple”. This takes the form `<arch><sub>-<vendor>-<sys>-<abi>` (see the cross compilation docs).
-As an example, we can see what clang thinks is our current target triple:
+# オブジェクトコードにコンパイルする
+## はじめに
+８章にようこそ．
+本章では，自分で作った言語をオブジェクトファイルにコンパイルする方法について説明する．
+## ターゲットの選択
+LLVMは，クロスコンパイルをサポートする．
+今使っているマシンのアーキテクチャ用にコンパイルできるし，他のアーキテクチャのために簡単にコンパイルすることもできる．
+このチュートリアルでは，現在使っているマシンをターゲットにする．
+ターゲットにしたいアーキテクチャを指定するためには，“target triple”と呼ばれる文字列を使います．
+これは，`<arch><sub>-<vendor>-<sys>-<abi>`のような形式をとります（詳しくはクロスコンパイルのドキュメントを読んでください）．
+例えば，以下のコマンドで，clangが保持する，現在のターゲットの“target triple”をチェックできます．
 
 ```
 $ clang --version | grep Target
 Target: x86_64-unknown-linux-gnu
 ```
 
-Running this command may show something different on your machine as you might be using a different architecture or operating system to me.
-Fortunately, we don’t need to hard-code a target triple to target the current machine. LLVM provides sys::getDefaultTargetTriple, which returns the target triple of the current machine.
+このコマンドを実行して表示される内容は，使っているマシンや，アーキテクチャ，OSなどによって異なります．
+幸運にも，今使っているマシンの"target triple"をハードコードする必要はない．
+LLVMは，今使っているマシンの"target triple"を返す，`sys::getDefaultTargetTriple`を提供する．
 
 ```
 auto TargetTriple = sys::getDefaultTargetTriple();
 ```
 
-LLVM doesn’t require us to link in all the target functionality. For example, if we’re just using the JIT, we don’t need the assembly printers. Similarly, if we’re only targeting certain architectures, we can only link in the functionality for those architectures.
-For this example, we’ll initialize all the targets for emitting object code.
+LLVMは，ターゲットの機能性のすべてをリンクすることを要求しない．
+例えば，もし，JITを使っているのであれば，アセンブリを表示する必要はない．
+同じように，もし，あるアーキテクチャのみをターゲットとしているなら，それらのアーキテクチャのための機能だけをリンクできる．
+
+例えば，以下のようなコードでオブジェクトコードを発行するために，すべてのターゲットを初期化する．
 
 ```
 InitializeAllTargetInfos();
@@ -29,7 +37,7 @@ InitializeAllAsmParsers();
 InitializeAllAsmPrinters();
 ```
 
-We can now use our target triple to get a Target:
+`Target`オブジェクトを取得するために，"target triple"を使う．
 
 ```
 std::string Error;
@@ -43,9 +51,13 @@ if (!Target) {
   return 1;
 }
 ```
-## Target Machine
-We will also need a TargetMachine. This class provides a complete machine description of the machine we’re targeting. If we want to target a specific feature (such as SSE) or a specific CPU (such as Intel’s Sandylake), we do so now.
-To see which features and CPUs that LLVM knows about, we can use llc. For example, let’s look at x86:
+
+## ｀TargetMachine`
+次に`TargetMachine`クラスが必要である．
+このクラスは，現在ターゲットとしているマシンの完全な説明を提供してくれる．
+もし，SSEのような特定の機能や，IntelのSandylakeのような特定のCPUをターゲットとしたい場合，このクラスを使う．
+
+LLVMが知っている機能やCPUを知るために，`llc`コマンドを使える．
 
 ```
 $ llvm-as < /dev/null | llc -march=x86 -mattr=help
@@ -66,7 +78,7 @@ Available features for this target:
   ...
 ```
 
-For our example, we’ll use the generic CPU without any additional features, options or relocation model.
+今のサンプルでは，追加機能やオプション，"relocation model（なにこれ）"はなしで，一般的なCPUを使うことにする．
 
 ```
 auto CPU = "generic";
@@ -77,16 +89,19 @@ auto RM = Optional<Reloc::Model>();
 auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 ```
 
-## Configuring the Module
-We’re now ready to configure our module, to specify the target and data layout. This isn’t strictly necessary, but the frontend performance guide recommends this. Optimizations benefit from knowing about the target and data layout.
+## `Module`の初期化
+これで，ターゲットやデータレイアウトを指定するためにモジュールを設定する準備が整った．
+これは，厳密には必要はないが，フロントエンドのパフォーマンスガイドとしては，これをすることを勧める．
+最適化は，ターゲットやデータレイアウトに関する知識から利益を得る．
 
 ```
 TheModule->setDataLayout(TargetMachine->createDataLayout());
 TheModule->setTargetTriple(TargetTriple);
 ```
 
-## Emit Object Code
-We’re ready to emit object code! Let’s define where we want to write our file to:
+## オブジェクトコードの発行
+さぁ，オブジェクトコードを発行しよう．
+まず，書き出したいファイルの場所を定義する．
 
 ```
 auto Filename = "output.o";
@@ -98,7 +113,9 @@ if (EC) {
   return 1;
 }
 ```
-Finally, we define a pass that emits object code, then we run that pass:
+
+最終的に，オブジェクトコードを発行するパスを定義する．
+そして，そのパスを実行する．
 
 ```
 legacy::PassManager pass;
@@ -113,14 +130,17 @@ pass.run(*TheModule);
 dest.flush();
 ```
 
-## Putting It All Together
-Does it work? Let’s give it a try. We need to compile our code, but note that the arguments to llvm-config are different to the previous chapters.
+## 全部一緒に
+動作しただろうか．
+試してみよう．
+自分のコードをコンパイルする必要があるが，ここまでの章のコンパイルと`llvm-config`の引数が多少違うことに注意してほしい．
 
 ```
 $ clang++ -g -O3 toy.cpp `llvm-config --cxxflags --ldflags --system-libs --libs all` -o toy
 ```
 
-Let’s run it, and define a simple average function. Press Ctrl-D when you’re done.
+さぁ，動作させてみて，単純な平均を計算する関数を実装してみよう．
+コーディングが終わったときにCtrl-Dでプログラムを終了させると，オブジェクトファイルが出力される．
 
 ```
 $ ./toy
@@ -129,7 +149,10 @@ ready> def average(x y) (x + y) * 0.5;
 Wrote output.o
 ```
 
-We have an object file! To test it, let’s write a simple program and link it with our output. Here’s the source code:
+これで，オブジェクトファイルができた．
+テストしてみよう．
+C++でこのオブジェクトファイルをリンクし，それをコールするコードを書いてみよう．
+例えば，以下のようなコードになる．
 
 ```
 #include <iostream>
@@ -143,7 +166,7 @@ int main() {
 }
 ```
 
-We link our program to output.o and check the result is what we expected:
+以下のようにして，コンパイル，リンクし，実行してみよう．
 
 ```
 $ clang++ main.cpp output.o -o main
