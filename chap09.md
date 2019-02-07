@@ -1,14 +1,23 @@
 # デバッグ情報の追加
 ## はじめに
-Welcome to Chapter 9 of the “Implementing a language with LLVM” tutorial. In chapters 1 through 8, we’ve built a decent little programming language with functions and variables. What happens if something goes wrong though, how do you debug your program?
+９章にようこそ．
+ここまでで，まずまずな，ちょっとしたプログラミング言語を作ってきた．
+もし，その中で何か変なことがおこったとき，あなたはどうやって，作ってきたコードをデバッグしましたか？
 
-Source level debugging uses formatted data that helps a debugger translate from binary and the state of the machine back to the source that the programmer wrote. In LLVM we generally use a format called DWARF. DWARF is a compact encoding that represents types, source locations, and variable locations.
+ソースレベルのデバッグは，デバッガがバイナリを翻訳することを助けるフォーマットされたデータを使い，プログラマが書いたコードへマシンの状態をトレースする．
+LLVMでは，一般的にDWARFと呼ばれるフォーマットを使う．
+DWARFは，コンパクトに型やソースの位置，変数の位置を表現するエンコード方式である．
 
-The short summary of this chapter is that we’ll go through the various things you have to add to a programming language to support debug info, and how you translate that into DWARF.
+本章を簡単にまとめると，プログラミング言語にデバッグ情報を追加するためにしないといけないこと，DWARFに，デバッグ情報を変換する方法について学ぶことになる．
 
-Caveat: For now we can’t debug via the JIT, so we’ll need to compile our program down to something small and standalone. As part of this we’ll make a few modifications to the running of the language and how programs are compiled. This means that we’ll have a source file with a simple program written in Kaleidoscope rather than the interactive JIT. It does involve a limitation that we can only have one “top level” command at a time to reduce the number of changes necessary.
+### 警告
+JITを通してデバッグすることはできない．
+このため，我々は，プログラムを小さく，スタンドアローンで動くようにコンパイルする必要がある．
+このため，言語を実行するために，コードをコンパイルする方法に多少，変更を加えることになる．
+これは，インタラクティブなJITというより，Kaleidoscopeで作ったシンプルなソースをコンパイルする何かを作ることになる．
+それは，たくさんコードを変更する必要をさけるため，今はひとつの"top level"コマンドしか持つことができない限界を受け入れる必要がある．
 
-Here’s the sample program we’ll be compiling:
+ここに，これからコンパイルするアプリケーションで，コンパイルするコードがある．
 
 ```
 def fib(x)
@@ -20,22 +29,29 @@ def fib(x)
 fib(10)
 ```
 
-## Why is this a hard problem?
-Debug information is a hard problem for a few different reasons - mostly centered around optimized code. First, optimization makes keeping source locations more difficult. In LLVM IR we keep the original source location for each IR level instruction on the instruction. Optimization passes should keep the source locations for newly created instructions, but merged instructions only get to keep a single location - this can cause jumping around when stepping through optimized programs. Secondly, optimization can move variables in ways that are either optimized out, shared in memory with other variables, or difficult to track. For the purposes of this tutorial we’re going to avoid optimization (as you’ll see with one of the next sets of patches).
+## 何故これが難しいのか？
+デバッグ情報は，いくつかの理由で非常に取り扱いが難しいーほとんどの場合，最適化されたコードが原因だが．
+はじめに，最適化は．ソースコードの位置を維持することを難しくする．
+LLVM IRでは，オリジナルソースコードの位置関係を，それぞれのIRレベルの命令になっても，保持させることができる．
+最適化パスは，新しく生成された命令に対しても，ソースコードの位置を保持すべきであるが，命令がマージされると，ひとつの位置しか保持できない．
+これは，最適化プログラムを通して，ステップするとき，コードの周りでジャンプすることの理由である．
+二つ目に，最適化は，最適化によって変数を消去する方法，他の変数をメモリを共有する方法，あるいは追跡できないような方法，いずれかの方法で，変数を動かす可能性がある．
+このチュートリアルの目的のために，ここでは，最適化は避けることにする（あとで，パッチのセットのひとつとして，最適化のあとにデバッグ情報を追加する方法を説明する？）．
 
-## Ahead-of-Time Compilation Mode
-To highlight only the aspects of adding debug information to a source language without needing to worry about the complexities of JIT debugging we’re going to make a few changes to Kaleidoscope to support compiling the IR emitted by the front end into a simple standalone program that you can execute, debug, and see results.
+## 先行コンパイル
+JITの複雑さに思い悩まず，ソースコードへデバッグ情報を追加する様子のみにハイライトを当てるため，フロントエンドによって発行されたIRを，実行，デバッグ，結果の確認ができるようなシンプルなスタンドアローンアプリケーションへとコンパイルできるように，Kaleidoscopeに２，３の修正を加えようと思う．
 
-First we make our anonymous function that contains our top level statement be our “main”:
+はじめに，無名関数を"main"関数にする．
+この無名関数は，我々のtop level文を含む．
 
 ```
 -    auto Proto = llvm::make_unique<PrototypeAST>("", std::vector<std::string>());
 +    auto Proto = llvm::make_unique<PrototypeAST>("main", std::vector<std::string>());
 ````
 
-just with the simple change of giving it a name.
+これは，関数に，"main"という名前を与えるだけのシンプルなものだ．
 
-Then we’re going to remove the command line code wherever it exists:
+次に，コマンドラインとして動作するためのコードを削除する．
 
 ```
 @@ -1129,7 +1129,6 @@ static void HandleTopLevelExpression() {
