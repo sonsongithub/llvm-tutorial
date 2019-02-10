@@ -1,1 +1,1 @@
-clang++ --std=c++14 ./sample.cpp `llvm-config --cxxflags`
+clang++ --std=c++14 ./main.cpp `llvm-config --cxxflags`
