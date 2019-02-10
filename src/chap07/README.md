@@ -12,8 +12,6 @@ ready> extern printd(x);
 ready> Read extern: 
 declare double @printd(double)
 
-ready> printed(1.0);
-ready> Error: Unknown function referenced
 ready> printd(1.0);
 ready> Illegal instruction: 4
 ```
