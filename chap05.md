@@ -178,7 +178,7 @@ graphvizは，brewでインストールすると良い．
 brew install graphviz
 ```
 
-![](./callgraph.png)
+![](./src/chap05/callgraph.png)
 
 これ以外の方法として，`F->viewCFG()`や`F->viewCFGOnly()`を呼ぶ方法もある(`F`は，`Function`クラス)．
 これを呼ぶときは，実際のコードにこれを実装して再コンパイルするか，デバッガでこのコードを呼ぶか，する．
