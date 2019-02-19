@@ -1,2 +1,3 @@
-clang++ --std=c++14 -c ./main.cpp -o ./main.o `llvm-config --cxxflags`
-clang++ --std=c++14 -o ./a.out ./main.o `llvm-config --ldflags --libs --libfiles --system-libs core orcjit mcjit native`
+LLVM_CONFIG="<path to llvm-config>"
+clang++ -c ./main.cpp -o ./main.o `${LLVM_CONFIG} --cxxflags`
+clang++ -o ./a.out ./main.o `${LLVM_CONFIG} --ldflags --libs --libfiles --system-libs`
