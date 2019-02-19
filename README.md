@@ -3,8 +3,47 @@ LLVM Tutorialを勉強するリポジトリ
 
 ## How to compile samples
 
+KaleidoscopeのChapter04以降で必要になるdynamic linkのコードが一部ビルドで正しく動きません．
+今の所，llvmのgithubミラーの`release_60`ブランチだと正しく動作するようです．
+brewなどのパッケージでインストールした場合，うまく動作しないので，githubから`release_60`ブランチのソースをチェックアウトし，コンパイルして使ってください．
+
+### LLVMのビルド
+
 ```
-clang++ --std=c++14 ./sample.cpp `llvm-config --cxxflags --ldflags --libs --libfiles --system-libs`
+git clone https://github.com/llvm-mirror/llvm.git
+cd llvm
+git checkout -b release_60 origin/release_60
+mkdir build
+cd build
+CC=gcc CXX=g++                              \
+cmake -DCMAKE_INSTALL_PREFIX=/usr           \
+      -DLLVM_ENABLE_FFI=ON                  \
+      -DCMAKE_BUILD_TYPE=Release            \
+      -DLLVM_BUILD_LLVM_DYLIB=ON            \
+      -DLLVM_LINK_LLVM_DYLIB=ON             \
+      -DLLVM_TARGETS_TO_BUILD="host;"       \
+      -DLLVM_BUILD_TESTS=ON                 \
+      -Wno-dev -G Ninja ..                  &&
+ninja
+```
+
+### LLVMのソース中のサンプルのビルドと動作確認
+
+```
+cd ./examples/Kaleidoscope/Chapter4/
+g++ ./toy.cpp `../../../build/bin/llvm-config --cxxflags --ldflags --libs --libfiles --system-libs`
+echo "extern printd(x);printd(1.0);" | ./a.out
+```
+
+正しくビルドできていれば，上記コードは，以下のような結果を出す．
+
+```
+ready> ready> Read extern: 
+declare double @printd(double)
+
+ready> ready> 1.000000
+Evaluated to 0.000000
+ready> ready> > Chapter4 sonson$ 
 ```
 
 ## Table of contents
