@@ -369,9 +369,12 @@ for (auto &Arg : TheFunction->args()) {
 ```
 
 ここで，はじめに変数を作り，それにスコープ(`SP`)を与え，名前，ソースコードの位置，型を与える．そして，それが引数や引数のインデックスになる．
-Next, we create an lvm.dbg.declare call to indicate at the IR level that we’ve got a variable in an alloca (and it gives a starting location for the variable), and setting a source location for the beginning of the scope on the declare.
+次に，`llvm.dbg.declare`呼び出しを生成することで，`alloca`内で変数をIRレベルの表現で取得することを示し（さらに，そのIRは，変数の位置も与える），宣言において，スコープの開始位置のソースコードでの位置を示します．
 
-One interesting thing to note at this point is that various debuggers have assumptions based on how code and debug information was generated for them in the past. In this case we need to do a little bit of a hack to avoid generating line information for the function prologue so that the debugger knows to skip over those instructions when setting a breakpoint. So in FunctionAST::CodeGen we add some more lines:
+ここで特筆すべきおもしろいことは，様々なデバッガは，過去に，コードやデバッグ情報がどうやって生成されたか依存する仮説を持っているということである．
+この場合，関数の頭出しのための行情報を生成するのを避けるハックをする必要がある．
+このため，デバッガは，ブレイクポイントを設定するときに．これらの命令をスキップすることを知らなければならない．
+このため，`FunctionAST::CodeGen`の中で，数行，書き足す必要がある．
 
 ```
 // Unset the location for the prologue emission (leading instructions with no
@@ -380,25 +383,11 @@ One interesting thing to note at this point is that various debuggers have assum
 KSDbgInfo.emitLocation(nullptr);
 ```
 
-and then emit a new location when we actually start generating code for the body of the function:
+そして，実際に，関数の実装してのコードの生成が始まった行番号を発行する．
 
 ```
 KSDbgInfo.emitLocation(Body.get());
 ``` 
 
-With this we have enough debug information to set breakpoints in functions, print out argument variables, and call functions. Not too bad for just a few simple lines of code!
-
-## Full Code Listing
-Here is the complete code listing for our running example, enhanced with debug information. To build this example, use:
-
-### Compile
-
-```
-clang++ -g toy.cpp `llvm-config --cxxflags --ldflags --system-libs --libs core mcjit native` -O3 -o toy
-```
-
-### Run
-
-```
-./toy
-```
+これによって，我々は，関数内でブレイクポイントをセットするためのデバッグ情報を十分に持たせることができ，引数の変数をプリントアウトしたり，関数を呼び出しできるようになる．
+このデバッガは，数行のコードを書くくらいなら，そんなに悪くないものです．
