@@ -49,10 +49,10 @@ ready> def test(x) (1+2+x)*(x+(1+2));
 ready> Read function definition:
 define double @test(double %x) {
 entry:
-        %addtmp = fadd double 3.000000e+00, %x
-        %addtmp1 = fadd double %x, 3.000000e+00
-        %multmp = fmul double %addtmp, %addtmp1
-        ret double %multmp
+    %addtmp = fadd double 3.000000e+00, %x
+    %addtmp1 = fadd double %x, 3.000000e+00
+    %multmp = fmul double %addtmp, %addtmp1
+    ret double %multmp
 }
 ```
 
@@ -86,22 +86,22 @@ Kaleidosopeのために、我々は、今、関数を即座に、すぐに、あ
 
 ```
 void InitializeModuleAndPassManager(void) {
-  // Open a new module.
-  TheModule = llvm::make_unique<Module>("my cool jit", TheContext);
+    // Open a new module.
+    TheModule = llvm::make_unique<Module>("my cool jit", TheContext);
 
-  // Create a new pass manager attached to it.
-  TheFPM = llvm::make_unique<FunctionPassManager>(TheModule.get());
+    // Create a new pass manager attached to it.
+    TheFPM = llvm::make_unique<FunctionPassManager>(TheModule.get());
 
-  // Do simple "peephole" optimizations and bit-twiddling optzns.
-  TheFPM->add(createInstructionCombiningPass());
-  // Reassociate expressions.
-  TheFPM->add(createReassociatePass());
-  // Eliminate Common SubExpressions.
-  TheFPM->add(createGVNPass());
-  // Simplify the control flow graph (deleting unreachable blocks, etc).
-  TheFPM->add(createCFGSimplificationPass());
+    // Do simple "peephole" optimizations and bit-twiddling optzns.
+    TheFPM->add(createInstructionCombiningPass());
+    // Reassociate expressions.
+    TheFPM->add(createReassociatePass());
+    // Eliminate Common SubExpressions.
+    TheFPM->add(createGVNPass());
+    // Simplify the control flow graph (deleting unreachable blocks, etc).
+    TheFPM->add(createCFGSimplificationPass());
 
-  TheFPM->doInitialization();
+    TheFPM->doInitialization();
 }
 ```
 
@@ -119,16 +119,16 @@ void InitializeModuleAndPassManager(void) {
 
 ```
 if (Value *RetVal = Body->codegen()) {
-  // Finish off the function.
-  Builder.CreateRet(RetVal);
+    // Finish off the function.
+    Builder.CreateRet(RetVal);
 
-  // Validate the generated code, checking for consistency.
-  verifyFunction(*TheFunction);
+    // Validate the generated code, checking for consistency.
+    verifyFunction(*TheFunction);
 
-  // Optimize the function.
-  TheFPM->run(*TheFunction);
+    // Optimize the function.
+    TheFPM->run(*TheFunction);
 
-  return TheFunction;
+    return TheFunction;
 }
 ```
 
@@ -141,9 +141,9 @@ ready> def test(x) (1+2+x)*(x+(1+2));
 ready> Read function definition:
 define double @test(double %x) {
 entry:
-        %addtmp = fadd double %x, 3.000000e+00
-        %multmp = fmul double %addtmp, %addtmp
-        ret double %multmp
+    %addtmp = fadd double %x, 3.000000e+00
+    %multmp = fmul double %addtmp, %addtmp
+    ret double %multmp
 }
 ```
 
@@ -174,27 +174,27 @@ Kaleidoscopeに我々が求めるものは、打ち込んだ関数をそのま�
 static std::unique_ptr<KaleidoscopeJIT> TheJIT;
 ...
 int main() {
-  InitializeNativeTarget();
-  InitializeNativeTargetAsmPrinter();
-  InitializeNativeTargetAsmParser();
+    InitializeNativeTarget();
+    InitializeNativeTargetAsmPrinter();
+    InitializeNativeTargetAsmParser();
 
-  // Install standard binary operators.
-  // 1 is lowest precedence.
-  BinopPrecedence['<'] = 10;
-  BinopPrecedence['+'] = 20;
-  BinopPrecedence['-'] = 20;
-  BinopPrecedence['*'] = 40; // highest.
+    // Install standard binary operators.
+    // 1 is lowest precedence.
+    BinopPrecedence['<'] = 10;
+    BinopPrecedence['+'] = 20;
+    BinopPrecedence['-'] = 20;
+    BinopPrecedence['*'] = 40; // highest.
 
-  // Prime the first token.
-  fprintf(stderr, "ready> ");
-  getNextToken();
+    // Prime the first token.
+    fprintf(stderr, "ready> ");
+    getNextToken();
 
-  TheJIT = llvm::make_unique<KaleidoscopeJIT>();
+    TheJIT = llvm::make_unique<KaleidoscopeJIT>();
 
-  // Run the main "interpreter loop" now.
-  MainLoop();
+    // Run the main "interpreter loop" now.
+    MainLoop();
 
-  return 0;
+    return 0;
 }
 ```
 
@@ -202,13 +202,13 @@ int main() {
 
 ```
 void InitializeModuleAndPassManager(void) {
-  // Open a new module.
-  TheModule = llvm::make_unique<Module>("my cool jit", TheContext);
-  TheModule->setDataLayout(TheJIT->getTargetMachine().createDataLayout());
+    // Open a new module.
+    TheModule = llvm::make_unique<Module>("my cool jit", TheContext);
+    TheModule->setDataLayout(TheJIT->getTargetMachine().createDataLayout());
 
-  // Create a new pass manager attached to it.
-  TheFPM = llvm::make_unique<FunctionPassManager>(TheModule.get());
-  ...
+    // Create a new pass manager attached to it.
+    TheFPM = llvm::make_unique<FunctionPassManager>(TheModule.get());
+    ...
 ```
 
 `KaleidoscopeJIT`クラスは、チュートリアルのために作った特殊な、シンプルなJITである。
@@ -220,27 +220,27 @@ void InitializeModuleAndPassManager(void) {
 
 ```
 static void HandleTopLevelExpression() {
-  // Evaluate a top-level expression into an anonymous function.
-  if (auto FnAST = ParseTopLevelExpr()) {
-    if (FnAST->codegen()) {
+    // Evaluate a top-level expression into an anonymous function.
+    if (auto FnAST = ParseTopLevelExpr()) {
+        if (FnAST->codegen()) {
 
-      // JIT the module containing the anonymous expression, keeping a handle so
-      // we can free it later.
-      auto H = TheJIT->addModule(std::move(TheModule));
-      InitializeModuleAndPassManager();
+            // JIT the module containing the anonymous expression, keeping a handle so
+            // we can free it later.
+            auto H = TheJIT->addModule(std::move(TheModule));
+            InitializeModuleAndPassManager();
 
-      // Search the JIT for the __anon_expr symbol.
-      auto ExprSymbol = TheJIT->findSymbol("__anon_expr");
-      assert(ExprSymbol && "Function not found");
+            // Search the JIT for the __anon_expr symbol.
+            auto ExprSymbol = TheJIT->findSymbol("__anon_expr");
+            assert(ExprSymbol && "Function not found");
 
-      // Get the symbol's address and cast it to the right type (takes no
-      // arguments, returns a double) so we can call it as a native function.
-      double (*FP)() = (double (*)())(intptr_t)ExprSymbol.getAddress();
-      fprintf(stderr, "Evaluated to %f\n", FP());
+            // Get the symbol's address and cast it to the right type (takes no
+            // arguments, returns a double) so we can call it as a native function.
+            double (*FP)() = (double (*)())(intptr_t)ExprSymbol.getAddress();
+            fprintf(stderr, "Evaluated to %f\n", FP());
 
-      // Delete the anonymous expression module from the JIT.
-      TheJIT->removeModule(H);
-    }
+            // Delete the anonymous expression module from the JIT.
+            TheJIT->removeModule(H);
+        }
 ```
 
 パースと`codegen`が成功すると，次にJITにtop-level表現を保持するモジュールを追加します．
@@ -268,7 +268,7 @@ ready> 4+5;
 Read top-level expression:
 define double @0() {
 entry:
-  ret double 9.000000e+00
+    ret double 9.000000e+00
 }
 
 Evaluated to 9.000000
@@ -283,17 +283,17 @@ ready> def testfunc(x y) x + y*2;
 Read function definition:
 define double @testfunc(double %x, double %y) {
 entry:
-  %multmp = fmul double %y, 2.000000e+00
-  %addtmp = fadd double %multmp, %x
-  ret double %addtmp
+    %multmp = fmul double %y, 2.000000e+00
+    %addtmp = fadd double %multmp, %x
+    ret double %addtmp
 }
 
 ready> testfunc(4, 10);
 Read top-level expression:
 define double @1() {
 entry:
-  %calltmp = call double @testfunc(double 4.000000e+00, double 1.000000e+01)
-  ret double %calltmp
+    %calltmp = call double @testfunc(double 4.000000e+00, double 1.000000e+01)
+    ret double %calltmp
 }
 
 Evaluated to 24.000000
@@ -320,8 +320,8 @@ ready> def foo(x) x + 1;
 Read function definition:
 define double @foo(double %x) {
 entry:
-  %addtmp = fadd double %x, 1.000000e+00
-  ret double %addtmp
+    %addtmp = fadd double %x, 1.000000e+00
+    ret double %addtmp
 }
 
 ready> foo(2);
@@ -330,8 +330,8 @@ Evaluated to 3.000000
 ready> def foo(x) x + 2;
 define double @foo(double %x) {
 entry:
-  %addtmp = fadd double %x, 2.000000e+00
-  ret double %addtmp
+    %addtmp = fadd double %x, 2.000000e+00
+    ret double %addtmp
 }
 
 ready> foo(2);
@@ -346,36 +346,36 @@ static std::unique_ptr<KaleidoscopeJIT> TheJIT;
 ...
 
 Function *getFunction(std::string Name) {
-  // First, see if the function has already been added to the current module.
-  if (auto *F = TheModule->getFunction(Name))
-    return F;
+    // First, see if the function has already been added to the current module.
+    if (auto *F = TheModule->getFunction(Name))
+        return F;
 
-  // If not, check whether we can codegen the declaration from some existing
-  // prototype.
-  auto FI = FunctionProtos.find(Name);
-  if (FI != FunctionProtos.end())
-    return FI->second->codegen();
+    // If not, check whether we can codegen the declaration from some existing
+    // prototype.
+    auto FI = FunctionProtos.find(Name);
+    if (FI != FunctionProtos.end())
+        return FI->second->codegen();
 
-  // If no existing prototype exists, return null.
-  return nullptr;
+    // If no existing prototype exists, return null.
+    return nullptr;
 }
 
 ...
 
 Value *CallExprAST::codegen() {
-  // Look up the name in the global module table.
-  Function *CalleeF = getFunction(Callee);
+    // Look up the name in the global module table.
+    Function *CalleeF = getFunction(Callee);
 
 ...
 
 Function *FunctionAST::codegen() {
-  // Transfer ownership of the prototype to the FunctionProtos map, but keep a
-  // reference to it for use below.
-  auto &P = *Proto;
-  FunctionProtos[Proto->getName()] = std::move(Proto);
-  Function *TheFunction = getFunction(P.getName());
-  if (!TheFunction)
-    return nullptr;
+    // Transfer ownership of the prototype to the FunctionProtos map, but keep a
+    // reference to it for use below.
+    auto &P = *Proto;
+    FunctionProtos[Proto->getName()] = std::move(Proto);
+    Function *TheFunction = getFunction(P.getName());
+    if (!TheFunction)
+        return nullptr;
 ```
 
 このコードは，それぞれの関数の，もっとも最近のプロトタイプ宣言を保持するグローバル変数，`FunctionProtos`を加えることから始まる．
@@ -388,32 +388,32 @@ Function *FunctionAST::codegen() {
 
 ```
 static void HandleDefinition() {
-  if (auto FnAST = ParseDefinition()) {
-    if (auto *FnIR = FnAST->codegen()) {
-      fprintf(stderr, "Read function definition:");
-      FnIR->print(errs());
-      fprintf(stderr, "\n");
-      TheJIT->addModule(std::move(TheModule));
-      InitializeModuleAndPassManager();
+    if (auto FnAST = ParseDefinition()) {
+        if (auto *FnIR = FnAST->codegen()) {
+            fprintf(stderr, "Read function definition:");
+            FnIR->print(errs());
+            fprintf(stderr, "\n");
+            TheJIT->addModule(std::move(TheModule));
+            InitializeModuleAndPassManager();
+        }
+    } else {
+        // Skip token for error recovery.
+         getNextToken();
     }
-  } else {
-    // Skip token for error recovery.
-     getNextToken();
-  }
 }
 
 static void HandleExtern() {
-  if (auto ProtoAST = ParseExtern()) {
-    if (auto *FnIR = ProtoAST->codegen()) {
-      fprintf(stderr, "Read extern: ");
-      FnIR->print(errs());
-      fprintf(stderr, "\n");
-      FunctionProtos[ProtoAST->getName()] = std::move(ProtoAST);
+    if (auto ProtoAST = ParseExtern()) {
+        if (auto *FnIR = ProtoAST->codegen()) {
+            fprintf(stderr, "Read extern: ");
+            FnIR->print(errs());
+            fprintf(stderr, "\n");
+            FunctionProtos[ProtoAST->getName()] = std::move(ProtoAST);
+        }
+    } else {
+        // Skip token for error recovery.
+        getNextToken();
     }
-  } else {
-    // Skip token for error recovery.
-    getNextToken();
-  }
 }
 ```
 
@@ -449,7 +449,7 @@ ready> sin(1.0);
 Read top-level expression:
 define double @2() {
 entry:
-  ret double 0x3FEAED548F090CEE
+    ret double 0x3FEAED548F090CEE
 }
 
 Evaluated to 0.841471
@@ -458,20 +458,20 @@ ready> def foo(x) sin(x)*sin(x) + cos(x)*cos(x);
 Read function definition:
 define double @foo(double %x) {
 entry:
-  %calltmp = call double @sin(double %x)
-  %multmp = fmul double %calltmp, %calltmp
-  %calltmp2 = call double @cos(double %x)
-  %multmp4 = fmul double %calltmp2, %calltmp2
-  %addtmp = fadd double %multmp, %multmp4
-  ret double %addtmp
+    %calltmp = call double @sin(double %x)
+    %multmp = fmul double %calltmp, %calltmp
+    %calltmp2 = call double @cos(double %x)
+    %multmp4 = fmul double %calltmp2, %calltmp2
+    %addtmp = fadd double %multmp, %multmp4
+    ret double %addtmp
 }
 
 ready> foo(4.0);
 Read top-level expression:
 define double @3() {
 entry:
-  %calltmp = call double @foo(double 4.000000e+00)
-  ret double %calltmp
+    %calltmp = call double @foo(double 4.000000e+00)
+    ret double %calltmp
 }
 
 Evaluated to 1.000000
@@ -498,8 +498,8 @@ JITのアドレス空間の中で`sin`が定義されたため，`KaleidoscopeJI
 
 /// putchard - putchar that takes a double and returns 0.
 extern "C" DLLEXPORT double putchard(double X) {
-  fputc((char)X, stderr);
-  return 0;
+    fputc((char)X, stderr);
+    return 0;
 }
 ```
 
