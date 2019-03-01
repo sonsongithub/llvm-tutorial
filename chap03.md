@@ -14,19 +14,21 @@ LLVM IRを生成するために，まず，シンプルなセットアップを�
 
 ```
 /// ExprAST - Base class for all expression nodes.
-class ExprAST {
-public:
-  virtual ~ExprAST() {}
-  virtual Value *codegen() = 0;
+class ExprAST
+{
+    public:
+        virtual ~ExprAST() {}
+        virtual Value *codegen() = 0;
 };
 
 /// NumberExprAST - Expression class for numeric literals like "1.0".
-class NumberExprAST : public ExprAST {
-  double Val;
+class NumberExprAST : public ExprAST
+{
+    double Val;
 
-public:
-  NumberExprAST(double Val) : Val(Val) {}
-  virtual Value *codegen();
+    public:
+        NumberExprAST(double Val) : Val(Val) {}
+        virtual Value *codegen();
 };
 ...
 ```
@@ -53,8 +55,8 @@ static std::unique_ptr<Module> TheModule;
 static std::map<std::string, Value *> NamedValues;
 
 Value *LogErrorV(const char *Str) {
-  LogError(Str);
-  return nullptr;
+    LogError(Str);
+    return nullptr;
 }
 ```
 
@@ -86,7 +88,7 @@ Kaleidscopeのこの形式では，参照されうるのは，関数のパラメ
 
 ```
 Value *NumberExprAST::codegen() {
-  return ConstantFP::get(TheContext, APFloat(Val));
+    return ConstantFP::get(TheContext, APFloat(Val));
 }
 ```
 
@@ -98,11 +100,11 @@ LLVM IRでは，定数は，すべてユニークでかつ共有される．
 
 ```
 Value *VariableExprAST::codegen() {
-  // Look this variable up in the function.
-  Value *V = NamedValues[Name];
-  if (!V)
-    LogErrorV("Unknown variable name");
-  return V;
+    // Look this variable up in the function.
+    Value *V = NamedValues[Name];
+    if (!V)
+      LogErrorV("Unknown variable name");
+    return V;
 }
 ```
 
@@ -115,26 +117,26 @@ Kaleidoscopeのシンプルバージョンでは，値は，どこかで生成�
 
 ```
 Value *BinaryExprAST::codegen() {
-  Value *L = LHS->codegen();
-  Value *R = RHS->codegen();
-  if (!L || !R)
-    return nullptr;
+    Value *L = LHS->codegen();
+    Value *R = RHS->codegen();
+    if (!L || !R)
+        return nullptr;
 
-  switch (Op) {
-  case '+':
-    return Builder.CreateFAdd(L, R, "addtmp");
-  case '-':
-    return Builder.CreateFSub(L, R, "subtmp");
-  case '*':
-    return Builder.CreateFMul(L, R, "multmp");
-  case '<':
-    L = Builder.CreateFCmpULT(L, R, "cmptmp");
-    // Convert bool 0/1 to double 0.0 or 1.0
-    return Builder.CreateUIToFP(L, Type::getDoubleTy(TheContext),
-                                "booltmp");
-  default:
-    return LogErrorV("invalid binary operator");
-  }
+    switch (Op) {
+    case '+':
+        return Builder.CreateFAdd(L, R, "addtmp");
+    case '-':
+        return Builder.CreateFSub(L, R, "subtmp");
+    case '*':
+        return Builder.CreateFMul(L, R, "multmp");
+    case '<':
+        L = Builder.CreateFCmpULT(L, R, "cmptmp");
+        // Convert bool 0/1 to double 0.0 or 1.0
+        return Builder.CreateUIToFP(L, Type::getDoubleTy(TheContext),
+                                                                "booltmp");
+    default:
+        return LogErrorV("invalid binary operator");
+    }
 }
 ```
 
@@ -162,23 +164,23 @@ uitofp命令は，入力の整数値を，それを符号なし浮動小数点�
 
 ```
 Value *CallExprAST::codegen() {
-  // Look up the name in the global module table.
-  Function *CalleeF = TheModule->getFunction(Callee);
-  if (!CalleeF)
-    return LogErrorV("Unknown function referenced");
+    // Look up the name in the global module table.
+    Function *CalleeF = TheModule->getFunction(Callee);
+    if (!CalleeF)
+        return LogErrorV("Unknown function referenced");
 
-  // If argument mismatch error.
-  if (CalleeF->arg_size() != Args.size())
-    return LogErrorV("Incorrect # arguments passed");
+    // If argument mismatch error.
+    if (CalleeF->arg_size() != Args.size())
+        return LogErrorV("Incorrect # arguments passed");
 
-  std::vector<Value *> ArgsV;
-  for (unsigned i = 0, e = Args.size(); i != e; ++i) {
-    ArgsV.push_back(Args[i]->codegen());
-    if (!ArgsV.back())
-      return nullptr;
-  }
+    std::vector<Value *> ArgsV;
+    for (unsigned i = 0, e = Args.size(); i != e; ++i) {
+        ArgsV.push_back(Args[i]->codegen());
+        if (!ArgsV.back())
+            return nullptr;
+    }
 
-  return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
+    return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
 }
 ```
 
@@ -199,14 +201,14 @@ llvmでは，これ以上のことを付け加えるのも簡単だ．
 
 ```
 Function *PrototypeAST::codegen() {
-  // Make the function type:  double(double,double) etc.
-  std::vector<Type*> Doubles(Args.size(),
-                             Type::getDoubleTy(TheContext));
-  FunctionType *FT =
-    FunctionType::get(Type::getDoubleTy(TheContext), Doubles, false);
+    // Make the function type:    double(double,double) etc.
+    std::vector<Type*> Doubles(Args.size(),
+                                                         Type::getDoubleTy(TheContext));
+    FunctionType *FT =
+        FunctionType::get(Type::getDoubleTy(TheContext), Doubles, false);
 
-  Function *F =
-    Function::Create(FT, Function::ExternalLinkage, Name, TheModule);
+    Function *F =
+        Function::Create(FT, Function::ExternalLinkage, Name, TheModule);
 ```
 
 この中の2,3行のコードの中に多くの重要な要素が詰め込まれている。
@@ -227,8 +229,7 @@ LLVMにおける型は、定数と同じようにユニークではないとい�
 // Set names for all arguments.
 unsigned Idx = 0;
 for (auto &Arg : F->args())
-  Arg.setName(Args[Idx++]);
-
+    Arg.setName(Args[Idx++]);
 return F;
 ```
 
@@ -242,17 +243,17 @@ Kaleidoscopeにおける`extern`をサポートするにためにこうする必
 
 ```
 Function *FunctionAST::codegen() {
-    // First, check for an existing function from a previous 'extern' declaration.
-  Function *TheFunction = TheModule->getFunction(Proto->getName());
+        // First, check for an existing function from a previous 'extern' declaration.
+    Function *TheFunction = TheModule->getFunction(Proto->getName());
 
-  if (!TheFunction)
-    TheFunction = Proto->codegen();
+    if (!TheFunction)
+        TheFunction = Proto->codegen();
 
-  if (!TheFunction)
-    return nullptr;
+    if (!TheFunction)
+        return nullptr;
 
-  if (!TheFunction->empty())
-    return (Function*)LogErrorV("Function cannot be redefined.");
+    if (!TheFunction->empty())
+        return (Function*)LogErrorV("Function cannot be redefined.");
 ```
 
 関数宣言のため，この指定された関数がすでに`TheModule`のシンボルテーブルに存在しないかを確認する．
@@ -268,7 +269,7 @@ Builder.SetInsertPoint(BB);
 // Record the function arguments in the NamedValues map.
 NamedValues.clear();
 for (auto &Arg : TheFunction->args())
-  NamedValues[Arg.getName()] = &Arg;
+    NamedValues[Arg.getName()] = &Arg;
 ```
 
 今，`Builder`のセットアップが完了するところまできた．
@@ -284,13 +285,13 @@ LLVMにおけるBasic blocksは，制御フローグラフを定義する関数�
 
 ```
 if (Value *RetVal = Body->codegen()) {
-  // Finish off the function.
-  Builder.CreateRet(RetVal);
+    // Finish off the function.
+    Builder.CreateRet(RetVal);
 
-  // Validate the generated code, checking for consistency.
-  verifyFunction(*TheFunction);
+    // Validate the generated code, checking for consistency.
+    verifyFunction(*TheFunction);
 
-  return TheFunction;
+    return TheFunction;
 }
 ```
 
