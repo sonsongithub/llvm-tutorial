@@ -23,36 +23,71 @@ LLVMで言語を実装するチュートリアルの最終章にようこそ．
 新しいグローバル変数を作るためには，LLVMの`GlobalVariable`クラスのインスタンスを作ればよい．
 
 ### 型付変数
-Kaleidoscope currently only supports variables of type double. This gives the language a very nice elegance, because only supporting one type means that you never have to specify types. Different languages have different ways of handling this. The easiest way is to require the user to specify types for every variable definition, and record the type of the variable in the symbol table along with its Value*.
+Kaleidoscopeは，今の所，double型の変数のみをサポートしている．
+これは，言語をとても美しくします．
+なぜなら，一つの型のみをサポートするということは，型を指定する必要がないということだからです．
+他の言語は，難しい方法で，これを取り扱います．
+最も簡単な方法は，それぞれの変数定義に型を明示させるようにすることです．
+そして，シンボルテーブルで変数の型も`Value*`と一緒に保存するようにすることです．
 
 ### 配列，構造体，ベクトルなどのデータ構造
-Once you add types, you can start extending the type system in all sorts of interesting ways. Simple arrays are very easy and are quite useful for many different applications. Adding them is mostly an exercise in learning how the LLVM getelementptr instruction works: it is so nifty/unconventional, it has its own FAQ!
+一度，複数の型を追加すると，いくつかの，そして，多くのおもしろい方法で，型システムを拡張することができるようになります．
+単純な配列はとても簡単ですが，多くのアプリケーションにとって，当然とても便利なものです．
+それらを追加するのは，ほとんどの場合，LLVMの`getelementptr`命令がどうやって動作しているのかを学ぶいい練習になります．
+つまり，それは，便利で，ちょっと風変わりなもので，`getelementptr`命令自体がFAQの対象となります．
 
 ### 標準的なランタイム
-Our current language allows the user to access arbitrary external functions, and we use it for things like “printd” and “putchard”. As you extend the language to add higher-level constructs, often these constructs make the most sense if they are lowered to calls into a language-supplied runtime. For example, if you add hash tables to the language, it would probably make sense to add the routines to a runtime, instead of inlining them all the way.
+現状の言語は，ユーザに任意の外部関数にアクセスすることを許容します．
+我々は，その特徴を`printd`や`putchard`のような形で使ってきました．
+よりハイレベルな言語構成に拡張しようとするときに，より低レベルな命令を呼び出すならば，この構成は非常に理にかなったものと言えます．
+例えば，もし，言語にハッシュテーブルを追加するなら，インラインで処理を書くのではなく，ランタイムに処理を追加する方がおそらく理にかなっています．
 
 ### メモリ管理
-Currently we can only access the stack in Kaleidoscope. It would also be useful to be able to allocate heap memory, either with calls to the standard libc malloc/free interface or with a garbage collector. If you would like to use garbage collection, note that LLVM fully supports Accurate Garbage Collection including algorithms that move objects and need to scan/update the stack.
+現状では，Kaleidoscope上のスタックにのみアクセスできます．
+それは，ヒープメモリを確保するのに便利ですが，`malloc/free`のようなインタフェースを呼び出したり，ガーベッジコレクタを使って，確保することもできます．
+もし，ガーベッジコレクションを使ってみたいのであれば，LLVMは，オブジェクトの移動，スタックを`scan/update`する必要があるアルゴリズムを含む，"Accurate Garbage Collection"をサポートすることを覚えておいてください．
 
 ### 例外
-LLVM supports generation of zero cost exceptions which interoperate with code compiled in other languages. You could also generate code by implicitly making every function return an error value and checking it. You could also make explicit use of setjmp/longjmp. There are many different ways to go here.
-object orientation, generics, database access, complex numbers, geometric programming, … - Really, there is no end of crazy features that you can add to the language.
+LLVMは，他の言語で，コンパイルされたコードに，まったくコストをかけることなく割り込みをかける例外の生成をサポートします．
+暗黙に各々の関数にエラーを返させたり，それをチェックすることによって，コードを生成することもできます．
+また，`setjmp/longjmp`を明示的に使うこともできます．
+そうするために，色々な種類の方法があるということです．
+
+### オブジェクト指向，ジェネリクス，データベースへのアクセス，虚数，幾何・・・・
+本当に，際限がないくらい，たくさんの機能を追加することができます．
 
 ### 特殊な分野に特化させる
-We’ve been talking about applying LLVM to a domain that many people are interested in: building a compiler for a specific language. However, there are many other domains that can use compiler technology that are not typically considered. For example, LLVM has been used to implement OpenGL graphics acceleration, translate C++ code to ActionScript, and many other cute and clever things. Maybe you will be the first to JIT compile a regular expression interpreter into native code with LLVM?
+ここまでは，特定の言語のためのコンパイラを作る，という多くの人が興味を持つエリアに，LLVMを応用することについて話してきました．
+しかし，典型的ではない，特殊なコンパイラ技術を使う分野も他にたくさんあります．
+例えば，LLVMは，OpenGLのグラフィックスのアクセラレーションを実装するのに使われたり，C++のコードをActionScriptに変換したりなど，色々な賢いアイデアを実現するために使われています．
+正規表現のインタプリタをネイティブコードに，LLVMを使ってJITコンパイルするのは，あなたになるかもしれません．
 
 ### 楽しもう！
-try doing something crazy and unusual. Building a language like everyone else always has, is much less fun than trying something a little crazy or off the wall and seeing how it turns out. If you get stuck or want to talk about it, feel free to email the llvm-dev mailing list: it has lots of people who are interested in languages and are often willing to help out.
+めちゃくちゃなことや，普通じゃないことに挑戦しましょう．
+みんなが使っていたりする言語を作るのは，ちょっとおかしい言語を作ったり，普通とは違うことをしたり，それがどう出てきたかを理解したりすることに比べるといささか退屈です．
+もし，そういったことに行き詰まっていたり，何か話したいことがあるなら，llvm-devのメーリングリストに気軽にメールするとよいでしょう．
+つまり，そのメーリングリストは，言語に興味のある人がたくさん参加しており，さらに，彼らは，よろこんで，手助けをしてくれます．
 
-Before we end this tutorial, I want to talk about some “tips and tricks” for generating LLVM IR. These are some of the more subtle things that may not be obvious, but are very useful if you want to take advantage of LLVM’s capabilities.
+このチュートリアルを終える前に，LLVM IRを生成するための，いくつかの"テク"について話したいと思います．
+これらは，わかりきったことではないものの，割と微妙なものです．
+しかし，LLVMの能力を利用したい人にとっては，非常に使いやすいものです．
 
-## Properties of the LLVM IR
-We have a couple of common questions about code in the LLVM IR form - let’s just get these out of the way right now, shall we?
+## LLVM IRの性質
+ここで，LLVM IR形式で書かれたコードについて，２，３のありふれた質問をします．
+さあ，用意はいいですか？
 
-### Target Independence
-Kaleidoscope is an example of a “portable language”: any program written in Kaleidoscope will work the same way on any target that it runs on. Many other languages have this property, e.g. lisp, java, haskell, javascript, python, etc (note that while these languages are portable, not all their libraries are).
+### ターゲットからの独立
+Kaleidoscopeは，"移植しやすい言語"の例でした．
+つまり，Kaleidoscopeで書かれたプログラムは，他のターゲット上であっても，同じ方法で動作させることができます．
+lisp, java, haskell, js, pythonなどの多くの他の言語は，この性質を備えています（これらの言語は移植しやすいのですが，そのライブラリが・・・そうではないのです・・・・）．
 
-One nice aspect of LLVM is that it is often capable of preserving target independence in the IR: you can take the LLVM IR for a Kaleidoscope-compiled program and run it on any target that LLVM supports, even emitting C code and compiling that on targets that LLVM doesn’t support natively. You can trivially tell that the Kaleidoscope compiler generates target-independent code because it never queries for any target-specific information when generating code.
+LLVMのよい一面として，IR上ではターゲットの独立性が維持されることです．
+つまり，LLVMがサポートするターゲットであれば，Kaleidoscopeをコンパイルされたコードを動作させることができます．
+他には，Cのコードを生成したり，LLVMが現状サポートしないターゲット上で動作するコードを実行させられます．
+Cのコードを生成し，LLVMが現状サポートしないターゲットにコンパイルすることさえできます．
+
+Kaleidoscopeのコンパイラがターゲットに依存しないコードを生成することを簡単に理解できるはずです．
+なぜなら，コードが生成されるときにターゲットの情報を聞かれなかったからです．
 
 The fact that LLVM provides a compact, target-independent, representation for code gets a lot of people excited. Unfortunately, these people are usually thinking about C or a language from the C family when they are asking questions about language portability. I say “unfortunately”, because there is really no way to make (fully general) C code portable, other than shipping the source code around (and of course, C source code is not actually portable in general either - ever port a really old application from 32- to 64-bits?).
 
@@ -60,9 +95,9 @@ The problem with C (again, in its full generality) is that it is heavily laden w
 
 ```
 #ifdef __i386__
-  int X = 1;
+    int X = 1;
 #else
-  int X = 42;
+    int X = 42;
 #endif
 ```
 
