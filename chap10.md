@@ -89,9 +89,14 @@ Cのコードを生成し，LLVMが現状サポートしないターゲットに
 Kaleidoscopeのコンパイラがターゲットに依存しないコードを生成することを簡単に理解できるはずです．
 なぜなら，コードが生成されるときにターゲットの情報を聞かれなかったからです．
 
-The fact that LLVM provides a compact, target-independent, representation for code gets a lot of people excited. Unfortunately, these people are usually thinking about C or a language from the C family when they are asking questions about language portability. I say “unfortunately”, because there is really no way to make (fully general) C code portable, other than shipping the source code around (and of course, C source code is not actually portable in general either - ever port a really old application from 32- to 64-bits?).
+事実，LLVMは，多くの人が楽しくなるような，コンパクトで，ターゲットに非依存な表現を提供します．
+不幸にも，こういった人々は，言語の移植性について考える時に，C言語やC言語の派生言語についていつも考えているようです．
 
-The problem with C (again, in its full generality) is that it is heavily laden with target specific assumptions. As one simple example, the preprocessor often destructively removes target-independence from the code when it processes the input text:
+私が"不幸にも"といったのは，Cのコードを，配布する以外に，本当に移植性を高くする方法が存在しないためです．
+もちろん，Cのソースコードは，実際には一般的に言って移植性がありません．例えば，32bitから64bitへ，本当に古いアプリケーションを移植できるでしょうか．
+
+C言語の問題は（繰り返しますが，これは一般的にも言えることです），ターゲット固有の仮定でいっぱいになっているからです．
+ひとつシンプルな例を挙げると，プリプロセッサは，それが入力されたテキストを処理するときに，しばしば，コードから，破壊的にターゲットからの独立性を取り去ってしまいます．
 
 ```
 #ifdef __i386__
@@ -101,11 +106,13 @@ The problem with C (again, in its full generality) is that it is heavily laden w
 #endif
 ```
 
-While it is possible to engineer more and more complex solutions to problems like this, it cannot be solved in full generality in a way that is better than shipping the actual source code.
+このような問題は，より複雑な解決方法をエンジニアに引き起こす一方で，ソースコードのままアプリケーションを出荷するよりも良い，十分に一般的な方法では，解決できません．
 
-That said, there are interesting subsets of C that can be made portable. If you are willing to fix primitive types to a fixed size (say int = 32-bits, and long = 64-bits), don’t care about ABI compatibility with existing binaries, and are willing to give up some other minor features, you can have portable code. This can make sense for specialized domains such as an in-kernel language.
+つまり，移植が容易ではないC言語のおもしろいサブセットがあります．
+もし，プリミティブな型のサイズを固定にしたい場合，既に存在するバイナリとのABIとの互換性を気にせず，そして，いくつかのマイナーな機能は喜んで諦めるべきです．そうすれば，コードの移植性を高めることができます．
+これは，カーネル用の言語のような特殊なドメインにおいても，成立します．
 
-### Safety Guarantees
+### 安全性の保証
 Many of the languages above are also “safe” languages: it is impossible for a program written in Java to corrupt its address space and crash the process (assuming the JVM has no bugs). Safety is an interesting property that requires a combination of language design, runtime support, and often operating system support.
 
 It is certainly possible to implement a safe language in LLVM, but LLVM IR does not itself guarantee safety. The LLVM IR allows unsafe pointer casts, use after free bugs, buffer over-runs, and a variety of other problems. Safety needs to be implemented as a layer on top of LLVM and, conveniently, several groups have investigated this. Ask on the llvm-dev mailing list if you are interested in more details.
