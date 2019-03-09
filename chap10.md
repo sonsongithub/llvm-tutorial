@@ -1,4 +1,4 @@
-# Kaleidoscope: まとめ，他の使いやすいLLVMのちょっとしたこと
+# まとめ，その他のちょっとしたこと
 ## チュートリアルの結論
 LLVMで言語を実装するチュートリアルの最終章にようこそ．
 このチュートリアルのコースでは，使いようのないおもちゃであった小さなKaleidoscopeという言語を，多少はおもしろい言語に（しかし，まだ使えないけど）まで育ててきました．
@@ -113,30 +113,60 @@ C言語の問題は（繰り返しますが，これは一般的にも言える�
 これは，カーネル用の言語のような特殊なドメインにおいても，成立します．
 
 ### 安全性の保証
-Many of the languages above are also “safe” languages: it is impossible for a program written in Java to corrupt its address space and crash the process (assuming the JVM has no bugs). Safety is an interesting property that requires a combination of language design, runtime support, and often operating system support.
+上で述べた多くの言語もまた，"安全"な言語です．
+つまり，メモリのアドレス空間を破壊したり，プロセスをクラッシュさせるようなJavaで書かれたプログラムを作ることはできません（JVMにバグないと仮定して）．
+安全性は，言語設計，ランタイムサポート，そしてOSのサポートを組み合わせる必要があるすおもしろい性質です．
 
-It is certainly possible to implement a safe language in LLVM, but LLVM IR does not itself guarantee safety. The LLVM IR allows unsafe pointer casts, use after free bugs, buffer over-runs, and a variety of other problems. Safety needs to be implemented as a layer on top of LLVM and, conveniently, several groups have investigated this. Ask on the llvm-dev mailing list if you are interested in more details.
+それは，LLVMで書かれた安全な言語を実装することは，あきらか可能です．
+しかし，LLVM IRは，それ自身に安全性を保証していません．
+LLVM IRは，危険性のあるポインターのキャストを許そうしますし，バグもありますし，バッファオーバーランも，その他，色々な問題を内包しています．
+安全性は，LLVMの上位のレイヤーとして，実装されるべきで，都合のいいことに，いくつかの開発者グループで，この課題についての調査が始まっています．
+これについて，もっと詳細を知りたい場合は，llvm-devのメーリングリストに尋ねてみてください．
 
-### Language-Specific Optimizations
-One thing about LLVM that turns off many people is that it does not solve all the world’s problems in one system (sorry ‘world hunger’, someone else will have to solve you some other day). One specific complaint is that people perceive LLVM as being incapable of performing high-level language-specific optimization: LLVM “loses too much information”.
+### 言語固有の最適化
+LLVMが多くの人をがっかりさせてしまうひとつの理由に，あるシステムにある問題の全てを解決してくれないという点にあります（すみません，"世界の飢餓"のような問題は，いつか，あなたが解決していかねばならないでしょう）．
+ある特定の不満は，人々がLLVMが高レベル言語を最適化できないと受けてめていることにあります．
+つまり，LLVMは，"多くの情報を失っている"と．
 
-Unfortunately, this is really not the place to give you a full and unified version of “Chris Lattner’s theory of compiler design”. Instead, I’ll make a few observations:
+不幸にも，この文章の目的は，クリス ラートナーが書いた"コンパイラ設計論"のすべてを解説することではありませんが，代わりに，いくつかの意見を述べたいと思います．
 
-First, you’re right that LLVM does lose information. For example, as of this writing, there is no way to distinguish in the LLVM IR whether an SSA-value came from a C “int” or a C “long” on an ILP32 machine (other than debug info). Both get compiled down to an ‘i32’ value and the information about what it came from is lost. The more general issue here, is that the LLVM type system uses “structural equivalence” instead of “name equivalence”. Another place this surprises people is if you have two types in a high-level language that have the same structure (e.g. two different structs that have a single int field): these types will compile down into a single LLVM type and it will be impossible to tell what it came from.
+はじめに，LLVMが情報を失っているという考えは正しいです．
+例えば，この文章にもあったように，(デバッグ情報というより)あるLLVMの表現が，C言語の`int`から来たSSAの値なのか，C言語のILP32マシン上での`long`からきたものなのかを，識別する方法はありません．
+これらの両方が，コンパイル時に`i32`の値へキャストされ，本来持っていた情報は失われます．
+ここでの，もっと一般的な問題は，LLVMの型システムが，"名前の同一性"の代わりに，"構造的な等価性"を使っていることです．
+言い換えると，高レベル言語では，異なる二つの型として扱われる変数が，LLVMでは，同じ構造を持つということに驚かされます（例えば，二つの違う構造体が一つの`int`フィールドを持っているときなど）．
+つまり，これらの型は一つのLLVMの型にコンパイル時にキャストされ，もはや，それがどこから来たものなのか問い合わせる手段がなくなってしまいます．
 
-Second, while LLVM does lose information, LLVM is not a fixed target: we continue to enhance and improve it in many different ways. In addition to adding new features (LLVM did not always support exceptions or debug info), we also extend the IR to capture important information for optimization (e.g. whether an argument is sign or zero extended, information about pointers aliasing, etc). Many of the enhancements are user-driven: people want LLVM to include some specific feature, so they go ahead and extend it.
+二点目は，LLVMは情報を失っているにも関わらず，LLVMは，ターゲットが固定されません．
+我々は，多くのいろんな方法で，LLVMを改善したり，拡張したりしつづけます．
+追加されていく多くの新しい機能に加えて，我々は，IRが最適化に必要かつ重要な情報を捉えられるように拡張していきます（例えば，引数が符号が付いているか，ゼロであるか，ポインタのエイリアスについての情報など）．
+拡張の多くは，ユーザが推し進めるものです．
+つまり，人々は，LLVMがいくつかの特定の機能をサポートしてほしいと望んでいるので，彼らがそれを推し進め，拡張することになるのです．
 
-Third, it is possible and easy to add language-specific optimizations, and you have a number of choices in how to do it. As one trivial example, it is easy to add language-specific optimization passes that “know” things about code compiled for a language. In the case of the C family, there is an optimization pass that “knows” about the standard C library functions. If you call “exit(0)” in main(), it knows that it is safe to optimize that into “return 0;” because C specifies what the ‘exit’ function does.
+三点目は，LLVMを使えば，言語固有の最適化を追加するのが可能かつ簡単であるということです．
+そして，それをやるために多くの選択肢があります．
+ちょっとした例として，その言語のためにコンパイルされたコードについて"知っている"ことを，言語特定の最適化Passを追加するのが簡単です．
+言語のためにコンパイルされたコードについてのことを知っている言語固有の最適化パスを追加するのが簡単です．
+C言語の場合，一般的なC言語のライブラリについて知っている最適化Passがあります．
+`main()`の中で`exit(0)`をコールする場合，C言語，`exit`関数が行うことを明記しているため，その最適化Passは，そのコードを`return 0;`に最適化しても安全です．
 
-In addition to simple library knowledge, it is possible to embed a variety of other language-specific information into the LLVM IR. If you have a specific need and run into a wall, please bring the topic up on the llvm-dev list. At the very worst, you can always treat LLVM as if it were a “dumb code generator” and implement the high-level optimizations you desire in your front-end, on the language-specific AST.
+シンプルなライブラリに関する知識に加えて，LLVM IRへ他の言語特有の情報を埋め込むこともできます．
+もし，あなたは，何か特定の必要性，やらないといけないことがあり，壁にぶつかっているなら，そのトピックをllvm-devのメーリングリストに投げかけてください．
+最悪の場合，常にLLVMをクソコード生成器として扱い，それをカバーするために，言語固有の抽象構文木上で，フロントエンドで高レベルの最適化を実装することになってしまいます．
 
-## Tips and Tricks
-There is a variety of useful tips and tricks that you come to know after working on/with LLVM that aren’t obvious at first glance. Instead of letting everyone rediscover them, this section talks about some of these issues.
+## Tips
+初めて見て，すぐにわかるわけではないLLVMを使い仕事し始めると，色々なtipsを知り始めます．
+各員にそれらを再発見させるのではなく，本節では，これらの課題について説明したいと思います．
 
-### Implementing portable offsetof/sizeof
-One interesting thing that comes up, if you are trying to keep the code generated by your compiler “target independent”, is that you often need to know the size of some LLVM type or the offset of some field in an llvm structure. For example, you might need to pass the size of a type into a function that allocates memory.
+### 移植性の高い`offsetof/sizeof`の実装
+ひとつおもしろいことは，もし，あなたが，あなたのコンパイラによって生成されたコードがターゲット非依存になるようにしようとするなら，LLVMの型のデータサイズや，構造体やクラスのフィールドのオフセットのサイズを知る必要があります．
+例えば，メモリを確保する関数に型のサイズを渡す必要があるかもしれません．
 
-Unfortunately, this can vary widely across targets: for example the width of a pointer is trivially target-specific. However, there is a clever way to use the getelementptr instruction that allows you to compute this in a portable way.
+不幸にも，これは，複数のターゲットに広くまたがった話です．
+つまり，例えば，ポインタの幅は，ささいなことですがターゲットに固有なものです．
+しかし，これを移植するときにも計算できるようにする`getelementptr`命令を使う賢い方法があります．
 
-### Garbage Collected Stack Frames
-Some languages want to explicitly manage their stack frames, often so that they are garbage collected or to allow easy implementation of closures. There are often better ways to implement these features than explicit stack frames, but LLVM does support them, if you want. It requires your front-end to convert the code into Continuation Passing Style and the use of tail calls (which LLVM also supports).
+### スタックフレームのガーベッジコレクション
+いくつかの言語は，明確にそれ自身のスタックフレームを管理しようとし，このため，しばしば，スタックフレームがガーベッジコレクトされたり，クロージャの実装が簡単になるようにしようとします．
+明示的なスタックフレームよりも，これらの機能を実装した方法がよいことがありますが，もし，あなたがスタックフレームを実装したい場合，LLVMはそれをサポートします．
+スタックフレームは，フロントエンドにコードを継続渡しスタイル(Continuation Passing Style)に変換すること，末尾呼び出しの使用を要求する．
