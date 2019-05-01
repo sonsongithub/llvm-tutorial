@@ -1,38 +1,56 @@
 
 # Tutorial
-## Tutorial Introduction
-Welcome to the “Implementing a language with LLVM” tutorial. This tutorial runs through the implementation of a simple language, showing how fun and easy it can be. This tutorial will get you up and started as well as help to build a framework you can extend to other languages. The code in this tutorial can also be used as a playground to hack on other LLVM specific things.
+"LLVMで言語を実装する"のチュートリアルへようこそ．
+このチュートリアルは，シンプルな言語の実装を通じて，それがいかに簡単で楽しいものかを伝えることを目的にする．
+このチュートリアルは，LLVMを始めるだけでなく，他の言語へ拡張できるフレームワークを構築する手助けにもなる．
+このチュートリアルで出てくるコードは，その他のLLVMの特定の何かをハックするための砂場としても使えるはずだ．
 
-The goal of this tutorial is to progressively unveil our language, describing how it is built up over time. This will let us cover a fairly broad range of language design and LLVM-specific usage issues, showing and explaining the code for it all along the way, without overwhelming you with tons of details up front.
+このチュートリアルの最終ゴールは，これから作る言語を，常にどうやって構築していくかを説明しながら，だんだんと明らかにしていくことである．
+これは，幅広い言語設計について知識やLLVMの特定の使い方をカバーし，それらを実現する手法を見せて，説明していく．
+ただし，困惑するくらいたくさんある詳細については，無視する．
 
-It is useful to point out ahead of time that this tutorial is really about teaching compiler techniques and LLVM specifically, not about teaching modern and sane software engineering principles. In practice, this means that we’ll take a number of shortcuts to simplify the exposition. For example, the code uses global variables all over the place, doesn’t use nice design patterns like visitors, etc… but it is very simple. If you dig in and use the code as a basis for future projects, fixing these deficiencies shouldn’t be hard.
+このチュートリアルは，本当にコンパイラ技術やLLVMを具体的に教えるもので，最近の，健全なソフトウェアエンジニアリングの原理原則について教えるものではない．
+実践的に，これは，説明を簡単にするために，たくさんのショートカットを使うことを意味する．
+例えば，コードがグローバル変数を使う，ビジターパターンのような良いデザインパターンを使わない・・・などなど・・しかし，コードはシンプルでる．
+もし，将来のプロジェクトのために基本として，コードを深くいじったり，使うなら，これらの欠陥を治すのは，そんなに難しいことではないだろう．
 
-I’ve tried to put this tutorial together in a way that makes chapters easy to skip over if you are already familiar with or are uninterested in the various pieces. 
+このチュートリアルでは，すでに知っていることや，あまり興味がない章は，簡単にスキップできるようにしたつもりだ．
 
-By the end of the tutorial, we’ll have written a bit less than 1000 lines of non-comment, non-blank, lines of code. With this small amount of code, we’ll have built up a very reasonable compiler for a non-trivial language including a hand-written lexer, parser, AST, as well as code generation support with a JIT compiler. While other systems may have interesting “hello world” tutorials, I think the breadth of this tutorial is a great testament to the strengths of LLVM and why you should consider it if you’re interested in language or compiler design.
+チュートリアルの終わりまでに書き上げるコードは，コメントや空行を含めないで1000行に満たないものになる．
+この小規模のコードで，字句解析，パーサ，抽象構文器，コード生成，JITコンパイラを含めた合理的なコンパイラを作り上げる．
+ほかのシステムは，おもしろい"hello world"チュートリアルをやる一方で，このチュートリアルの幅広さは，LLVMの長所のよい証拠であり，もし，あなたが言語やコンパイラ設計で興味にあるなら，そうであることをあなたはじっくり考えるべきであると，私は考える．
 
-A note about this tutorial: we expect you to extend the language and play with it on your own. Take the code and go crazy hacking away at it, compilers don’t need to be scary creatures - it can be a lot of fun to play with languages!
+このチュートアルについて，特に言いたいことは，我々は，あなたが，この言語を拡張し，自身の手でそれで遊ぶようになることだ．
 
-## The Basic Language
-This tutorial will be illustrated with a toy language that we’ll call “Kaleidoscope” (derived from “meaning beautiful, form, and view”). Kaleidoscope is a procedural language that allows you to define functions, use conditionals, math, etc. Over the course of the tutorial, we’ll extend Kaleidoscope to support the if/then/else construct, a for loop, user defined operators, JIT compilation with a simple command line interface, etc.
+コードを手に取り，それをクラックしまくってほしいーコンパイラを怖がる必要はないー言語で遊ぶことはすごく楽しい遊びになるはずだ．
 
-Because we want to keep things simple, the only datatype in Kaleidoscope is a 64-bit floating point type (aka ‘double’ in C parlance). As such, all values are implicitly double precision and the language doesn’t require type declarations. This gives the language a very nice and simple syntax. For example, the following simple example computes Fibonacci numbers:
+## 基本言語
+
+このチュートリアルは，我々が"Kaleidoscope"（美しい形や見かけという意味から）と呼んでいるおもちゃの言語で構成される．
+Kaleidoscopeは，関数定義，条件分岐，数学関数が使える手続き型言語である．
+チュートリアルの終わりまでに，Kaleidoscopeは，`if/then/else`構造，`for`ループ，ユーザ定義演算子，JITコンパイラ，JITコンパイルのためのコマンドラインツールをサポートするように拡張されていく．
+
+物事をシンプルにするために，Kaleidoscopeでは，データ型として，64bitの浮動小数点型のみをサポートするようにする（C言語でいうところの`double`型）．
+
+すべての値は暗黙に倍精度であり，言語は型宣言を必要としない．
+これは，言語の文法を非常に簡単にする．
+例えば，フィボナッチ数列を計算するコードは，以下のようになる．
 
 ```
-# Compute the x'th fibonacci number.
+# x番目のフィボナッチ数列を計算するコード
 def fib(x)
   if x < 3 then
     1
   else
     fib(x-1)+fib(x-2)
-```
-
-```
-# This expression will compute the 40th number.
+    
+# この表現で，40番目のフィボナッチ数列を得る
 fib(40)
 ```
 
-We also allow Kaleidoscope to call into standard library functions (the LLVM JIT makes this completely trivial). This means that you can use the ‘extern’ keyword to define a function before you use it (this is also useful for mutually recursive functions). For example:
+さらに，Kaleidoscopeでstandard libraryの関数を呼べるようにする（LLVM JITがこれを簡単にする）．
+これは，`extern`キーワードを使って，今までに使ったことのある関数を定義できることを意味する（これはまた，相互に再帰関数を実装するのにも役立つ）．
+例えば，以下のようなコードを書ける．
 
 ```
 extern sin(arg);
@@ -42,51 +60,67 @@ extern atan2(arg1 arg2);
 atan2(sin(.4), cos(42))
 ```
 
-A more interesting example is included in Chapter 6 where we write a little Kaleidoscope application that displays a Mandelbrot Set at various levels of magnification.
+さらにおもしろい例は，任意のレベルのマンデルブロー集合を表示するKaleidoscopeアプリケーションを書く6章にある．
 
-Lets dive into the implementation of this language!
+さぁ，この言語の実装をはじめよう．
 
-## The Lexer
-When it comes to implementing a language, the first thing needed is the ability to process a text file and recognize what it says. The traditional way to do this is to use a “lexer” (aka ‘scanner’) to break the input up into “tokens”. Each token returned by the lexer includes a token code and potentially some metadata (e.g. the numeric value of a number). First, we define the possibilities:
+## 字句解析器
+言語の実装を始める．はじめに，テキストファイルを処理し，テキストが何を言ってるのかを認識する能力を持たせる必要がある．
+伝統的な方法は，入力をトークンに分割する"字句解析器"を使うことだ．
+字句解析器が返すそれぞれのトークンは，トークンコードと，潜在的なメタデータ（例えば，数字であれば数値）を含む．
+はじめに，その一覧を下記に示す．
 
 ```
-// The lexer returns tokens [0-255] if it is an unknown character, otherwise one
-// of these for known things.
+// 字句解析器は，トークンのコードとして，[0-255]を返す．
 enum Token {
   tok_eof = -1,
 
-  // commands
+  // コマンド
   tok_def = -2,
   tok_extern = -3,
 
-  // primary
+  // 主表現
   tok_identifier = -4,
   tok_number = -5,
 };
 ```
 
-static std::string IdentifierStr; // Filled in if tok_identifier
-static double NumVal;             // Filled in if tok_number
-Each token returned by our lexer will either be one of the Token enum values or it will be an ‘unknown’ character like ‘+’, which is returned as its ASCII value. If the current token is an identifier, the IdentifierStr global variable holds the name of the identifier. If the current token is a numeric literal (like 1.0), NumVal holds its value. Note that we use global variables for simplicity, this is not the best choice for a real language implementation :).
+```
+// トークンがtok_identifierなら，この変数に値を入れる
+static std::string IdentifierStr; 
+// トークンがtok_numberなら，この変数に値を入れる
+static double NumVal;             
+```
 
-The actual implementation of the lexer is a single function named gettok. The gettok function is called to return the next token from standard input. Its definition starts as:
+字句解析器によって返されるトークンは，`Token`の列挙型のひとつか，`+`のような"未知"の文字コード（ASCIIコードの値）となる．
+現在のトークンが何らかの識別名である場合，グローバル変数の`IdentifierStr`に，その識別名が保存される．
+もし，現在のトークンが，数字リテラルである場合は，グローバル変数の`NumVal`にその値を保存する．
+ここで，注意してほしいのは，グローバル変数を使っているのは，簡単のためであって，それが実際に言語を実装するにあたってベストな選択ではないことだ．
+
+字句解析器の実際の実装は，`gettok`という一つの関数でなされる．
+`gettok`関数は，標準入力から得た次のトークンを返すために呼ばれる．
+その実装は，以下のように始まる．
 
 ```
-/// gettok - Return the next token from standard input.
+/// gettok - 標準入力から次のトークンを返す
 static int gettok() {
   static int LastChar = ' ';
 
-  // Skip any whitespace.
+  // 空白はスキップされる
   while (isspace(LastChar))
     LastChar = getchar();
 ```
 
-gettok works by calling the C getchar() function to read characters one at a time from standard input. It eats them as it recognizes them and stores the last character read, but not processed, in LastChar. The first thing that it has to do is ignore whitespace between tokens. This is accomplished with the loop above.
+`gettok`は，C言語の`getchar()`を呼び出し，一文字ずつ標準入力から読み取る．
+それは，読み出した文字を認識した後，最後の文字を読み取り保存するが，処理はしない．
+その最後の文字は，`LastChar`に保存される．
+上のコードで最初に実装されているのは，トークン間の空白が無視することで，これは，ループの最初に実行される．
 
-The next thing gettok needs to do is recognize identifiers and specific keywords like “def”. Kaleidoscope does this with this simple loop:
+次に，`gettok`がやるべきことは，`def`のような特定のキーワードを識別，認識することである．
+Kaleidoscopeは，以下のシンプルなループでそれを実行する．
 
 ```
-if (isalpha(LastChar)) { // identifier: [a-zA-Z][a-zA-Z0-9]*
+if (isalpha(LastChar)) { // [a-zA-Z][a-zA-Z0-9]*の正規表現を識別する
   IdentifierStr = LastChar;
   while (isalnum((LastChar = getchar())))
     IdentifierStr += LastChar;
@@ -98,6 +132,8 @@ if (isalpha(LastChar)) { // identifier: [a-zA-Z][a-zA-Z0-9]*
   return tok_identifier;
 }
 ```
+
+このコードは，
 
 Note that this code sets the ‘IdentifierStr’ global whenever it lexes an identifier. Also, since language keywords are matched by the same loop, we handle them here inline. Numeric values are similar:
 
@@ -143,136 +179,3 @@ We handle comments by skipping to the end of the line and then return the next t
 ```
 
 With this, we have the complete lexer for the basic Kaleidoscope language (the full code listing for the Lexer is available in the next chapter of the tutorial). Next we’ll build a simple parser that uses this to build an Abstract Syntax Tree. When we have that, we’ll include a driver so that you can use the lexer and parser together.
-
-
-# Kaleidoscope: Tutorial Introduction and the Lexer
-
-## Tutorial Introduction
-
-コンパイル方法
-
-```
-clang++ --std=c++14 ./toy.cpp `llvm-config --cxxflags --ldflags --libs --libfiles --system-libs`
-```
-
-## The Basic Language
-Kaleidoscopeという言語を作ります．
-
-この言語は，
-
-1. if/else文
-2. for文
-3. ユーザ定義の演算子
-4. シンプルなコマンドラインインタフェースをもつJITコンパイラ
-
-という特徴を持つ．
-また，この言語は，簡単のため変数は64bit浮動小数点実数しかない．
-なので，この言語は，型宣言が不要な簡単なものになる．
-
-```
-# Compute the x'th fibonacci number.
-def fib(x)
-  if x < 3 then
-    1
-  else
-    fib(x-1)+fib(x-2)
-
-# This expression will compute the 40th number.
-fib(40)
-```
-
-Kaleidoscopeでは，Standard libraryの関数を呼べるようにする．
-また，`extern`をつけて関数宣言できるようにする．
-例えば，以下のようになる．
-
-```
-extern sin(arg);
-extern cos(arg);
-extern atan2(arg1 arg2);
-
-atan2(sin(.4), cos(42))
-```
-
-## The Lexer
-
-1. 語彙解析(Lexical Analysis)
-1. トークンを定義する．トークンは，いくつかメタデータを持つ．数値ならば，実数の値など．
-
-```
-// The lexer returns tokens [0-255] if it is an unknown character, otherwise one
-// of these for known things.
-enum Token {
-  tok_eof = -1,
-
-  // commands
-  tok_def = -2,
-  tok_extern = -3,
-
-  // primary
-  tok_identifier = -4,
-  tok_number = -5,
-};
-
-// リテラルで文字列を書いたとき
-static std::string IdentifierStr; // Filled in if tok_identifier
-// リテラルで数値を書いたとき
-static double NumVal;             // Filled in if tok_number
-```
-
-この例でグローバル変数を多用しているが，これは簡単のためで，実際の実装では，このような手法は，実際の実装においてベストなソリューションではないと思う．
-
-`Lexer`の実際の実装は，一つの関数`gettok`だけである．
-`space`を飛ばしながら，`IdentifierStr`に保存していく．
-変数名や変数宣言，関数宣言は，下で処理する．
-一旦，アルファベットが見つかったら，この中で`space`まで読み込んで，処理する．
-
-```
-    // Skip any whitespace.
-    while (isspace(LastChar))
-        LastChar = getchar();
-
-    if (isalpha(LastChar)) { // identifier: [a-zA-Z][a-zA-Z0-9]*
-        IdentifierStr = LastChar;
-        while (isalnum((LastChar = getchar())))
-            IdentifierStr += LastChar;
-
-        if (IdentifierStr == "def")
-            return tok_def;
-        if (IdentifierStr == "extern")
-            return tok_extern;
-        return tok_identifier;
-    }
-```
-
-`strtod`・・文字列の始めの部分を`double`型の数値に変換する．
-1.23.46のような値は，1.23に丸められる．
-
-```
-    if (isdigit(LastChar) || LastChar == '.') { // Number: [0-9.]+
-        std::string NumStr;
-        do {
-            NumStr += LastChar;
-            LastChar = getchar();
-        } while (isdigit(LastChar) || LastChar == '.');
-
-        NumVal = strtod(NumStr.c_str(), nullptr);
-        return tok_number;
-    }
-```
-
-`#`は，コメントアウトなので，行末あるいはファイルの最後まで飛ばす．
-
-```
-    if (LastChar == '#') {
-        // Comment until end of line.
-        do
-            LastChar = getchar();
-        while (LastChar != EOF && LastChar != '\n' && LastChar != '\r');
-
-        if (LastChar != EOF)
-            return gettok();
-    }
-```
-
-これで，ソースコードの中身は，すべてトークンに分割された．
-次に，抽象構文木を作っていく．
