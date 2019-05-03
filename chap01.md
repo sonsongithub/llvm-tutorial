@@ -102,7 +102,7 @@ static double NumVal;
 その実装は，以下のように始まる．
 
 ```
-/// gettok - 標準入力から次のトークンを返す
+// gettok - 標準入力から次のトークンを返す
 static int gettok() {
   static int LastChar = ' ';
 
@@ -133,9 +133,9 @@ if (isalpha(LastChar)) { // [a-zA-Z][a-zA-Z0-9]*の正規表現を識別する
 }
 ```
 
-このコードは，
-
-Note that this code sets the ‘IdentifierStr’ global whenever it lexes an identifier. Also, since language keywords are matched by the same loop, we handle them here inline. Numeric values are similar:
+このコードは，識別子をパースする時は常に，`IdentifierStr`をグローバル変数として取り扱うことに注意する．
+また，予約語が同じループでマッチするため，ここでは，予約語をインラインで取り扱う．
+数値も同様に，
 
 ```
 if (isdigit(LastChar) || LastChar == '.') {   // Number: [0-9.]+
@@ -150,11 +150,17 @@ if (isdigit(LastChar) || LastChar == '.') {   // Number: [0-9.]+
 }
 ```
 
-This is all pretty straight-forward code for processing input. When reading a numeric value from input, we use the C strtod function to convert it to a numeric value that we store in NumVal. Note that this isn’t doing sufficient error checking: it will incorrectly read “1.23.45.67” and handle it as if you typed in “1.23”. Feel free to extend it :). Next we handle comments:
+のようにして取り扱う．
+
+これは，入力を扱うための，かなり愚直なコードだ．
+入力から数値をよみとるとき，我々は，C言語の`strtod`関数を使い，その結果を数値に変換し，`NumVal`に保存する．
+これは，十分なエラーチェックを実行しないため，`1.23.45.67`のような文字列を間違って読み込んでしまい，それを`1.23`の数値として扱ってしまう．
+是非それは，改善したいもらいたい．
+次にコメントの取り扱いである．
 
 ```
 if (LastChar == '#') {
-  // Comment until end of line.
+  // コメントは，改行の位置まで．
   do
     LastChar = getchar();
   while (LastChar != EOF && LastChar != '\n' && LastChar != '\r');
@@ -164,18 +170,21 @@ if (LastChar == '#') {
 }
 ```
 
-We handle comments by skipping to the end of the line and then return the next token. Finally, if the input doesn’t match one of the above cases, it is either an operator character like ‘+’ or the end of the file. These are handled with this code:
+コメントは，その行の終わりまでスキップすることで処理し，次のトークンを返す．
+最終的に，もし入力が上のケースのどれにも該当しない場合，トークンは，`+`のような文字やファイル終端に該当する．
+それらは，以下のように取り扱われる．
 
 ```
-  // Check for end of file.  Don't eat the EOF.
+  // ファイル終端(EOF)をチェックする．EOFは，処理しない．
   if (LastChar == EOF)
     return tok_eof;
-
-  // Otherwise, just return the character as its ascii value.
+  // 一方，EOFでない場合は，ASCIIの値をそのまま文字として返す．
   int ThisChar = LastChar;
   LastChar = getchar();
   return ThisChar;
 }
 ```
 
-With this, we have the complete lexer for the basic Kaleidoscope language (the full code listing for the Lexer is available in the next chapter of the tutorial). Next we’ll build a simple parser that uses this to build an Abstract Syntax Tree. When we have that, we’ll include a driver so that you can use the lexer and parser together.
+このコードで，基本的なKaleidoscope言語のためのlexer(lexerのコード全部は，チュートリルの次章で紹介する)が完成した．
+次に，これを使い，抽象構文木を構築するパーサを作る．
+パーサができると，lexerとパーサを一緒に使うためのドライバを作っていくことになる．
