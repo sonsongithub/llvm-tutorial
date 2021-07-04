@@ -8,7 +8,7 @@ LLVMチュートリアルの言語の実装に使われている`KaleidoscopeJIT
 
 このチュートリアルの目標は，ORC JIT APIを紹介し，LLVMの他の機能とこれらのAPIのinteractのやり方や，読者のユースケースにマッチしたカスタムJITを構築するために，それらをどうやって結合すればいいのかを説明します．
 
-チュートリアルの構成は，
+チュートリアルの構成は，以下のようになります．
 
 * 1章：簡単な`KaleidoscopeJIT`クラスの解説．ここでは，ORCレイヤーの考え方を含む，ORC JIT APIの基本的な概念を紹介します．
 * 2章：LLVM IRを最適化したり，コードを生成する新しいレイヤーを基本の`KaleidoscopeJIT`クラスに追加します．
@@ -16,9 +16,7 @@ LLVMチュートリアルの言語の実装に使われている`KaleidoscopeJIT
 * 4章：関数が呼ばれるまで，IRの生成を遅延させるために，ORCのコンパイルコールバックAPIを直接使うカスタムレイヤーで，Compile-On-Demandレイヤーを置き換えることによって，自作のJITの遅延を実現します．
 * 5章：JITリモートAPIを使って，限定された特権でリモートプロセスに，コードをJITコンパイルすることで，"process isolation"を追加します．
 
-です．
-
-7章の“Implementing a language in LLVM tutorial”から，Kaleidoscope REPLをちょっと改造したバージョンを使うことになります．
+別ドキュメントの7章の“Implementing a language in LLVM tutorial”から，Kaleidoscope REPLをちょっと改造したバージョンを使うことになります．
 
 最終的に，APIの世代で言うと，ORCは，LLVMのJIT APIの第三世代になります．
 ORCは，MCJITに続く世代です．
@@ -57,7 +55,7 @@ int Result = Main();
 今から作っていくJITへの入力として，チュートリアルの7章からREPLコードを使います．
 このチュートリアルでは，ユーザがexpressionを入力するたびに，REPLが，JITにその表現に該当するコードを含むIRモジュールを追加していくものでした．
 もし，そのexpressionが，`1+1`や`sin(x)`のようなtop-level expressionである場合，REPLは，JITクラスのルックアップメソッドを，expressionに対するコードを探したり，実行したりするために使います．
-さらに進んだ章では，JITとイン楽ションできるようにREPLを改造していきますが，今のところ，この設定を前提として，JITの実装に注目していくことにします．
+さらに進んだ章では，JITとインタラクションできるようにREPLを改造していきますが，今のところ，この設定を前提として，JITの実装に注目していくことにします．
 
 `KaleidoscopeJIT`は，[KaleidoscopeJIT.h](https://github.com/llvm-mirror/llvm/blob/master/examples/Kaleidoscope/include/KaleidoscopeJIT.h)で定義されます．
 
@@ -106,7 +104,7 @@ public:
 
 このクラスには，６つのメンバがあります．
 
-1. `ExecutionSEssion` as `ES`．文字列プール，グローバルのmutex，エラー報告のための基盤などを含むJITコンパイルされたコードのためのコンテキストを供給するためのものです．
+1. `ExecutionSession` as `ES`．文字列プール，グローバルのmutex，エラー報告のための基盤などを含むJITコンパイルされたコードのためのコンテキストを供給するためのものです．
 2. `RTDyldObjectLinkingLayer` as `ObjectLayer`． （直接使うことはないですが）JITにオブジェクトファイルを追加するために使います．
 3. `IRCompileLayer` as `CompileLayer`．JITにLLVMモジュールを追加するために使います．モジュールは，ObjectLayer上に構築されます．
 4. `DataLayout` as `DL`，`MangleAndInterner` as `Mangle`．これは，シンボルをマングリングするために使われます．

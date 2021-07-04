@@ -1,0 +1,22 @@
+{
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "clang++ build active file",
+            "command": "arch",
+            "args": [
+                "-arm64",
+                "/usr/bin/clang++",
+                "-g",
+                "-O0",
+                "${fileDirname}/${fileBasename}",
+                "-o",
+                "${fileDirname}/${fileBasenameNoExtension}",
+                "`/Users/sonson/Documents/code/llvm-11.0.0.src/m1_build/bin/llvm-config", "--cppflags`",
+                "-std=c++17",
+                "`/Users/sonson/Documents/code/llvm-11.0.0.src/m1_build/bin/llvm-config", "--ldflags", "--libs", "--libfiles", "core", "orcjit", "mcjit", "native", "--system-libs`"
+            ]
+        }
+    ],
+    "version": "2.0.0"
+}

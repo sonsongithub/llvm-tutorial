@@ -7,5 +7,6 @@ SET_LLVM_COMPILE_CONFIG()
 set(CMAKE_C_LINK_EXECUTABLE "/usr/local/opt/llvm/bin/clang++")
 set(CMAKE_CXX_COMPILER "/usr/local/opt/llvm/bin/clang++")
 set(CMAKE_CXX_FLAGS ${LLVM_COMPILE_CONFIG})
+set(CMAKE_CXX_FLAGS "-std=c++14")
 
-add_executable(main main.cpp)
+add_executable(chap02 main.cpp)

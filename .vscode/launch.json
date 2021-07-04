@@ -1,0 +1,22 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "clang++ - アクティブ ファイルのビルドとデバッグ",
+            "type": "lldb",
+            "request": "launch",
+            // "targetArchitecture": "arm64",
+            "program": "${fileDirname}/${fileBasenameNoExtension}",
+            "args": [],
+            // "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            // "environment": [],
+            // "externalConsole": false,
+            // "MIMode": "lldb",
+            "preLaunchTask": "clang++ build active file"
+        }
+    ]
+}
