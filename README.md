@@ -6,9 +6,6 @@
 
 ## [How to build LLVM on M1](./M1)
 
-## [jit samples](./jit)
-
-1. MCJIT
-2. ORCJIT
+## [JIT samples](./jit)
 
 ## [Variable lentgh argments in LLVM API](./va_list)
