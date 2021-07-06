@@ -15,7 +15,11 @@ make install
 
 ### Build LLVM
 
-At first, to avoid using libxml2, edit `CMakeLists.txt` as follows,
+At first, check your Terminal.app without using Rosetta.
+
+<img width="251" alt="image" src="https://user-images.githubusercontent.com/33768/124542560-91d6d600-de5e-11eb-8222-659d5b04eb31.png">
+
+To avoid using libxml2, edit `CMakeLists.txt` as follows,
 
 ```
 set(LLVM_ENABLE_LIBXML2 "OFF" CACHE STRING "Use libxml2 if available. Can be ON, OFF, or FORCE_ON")
