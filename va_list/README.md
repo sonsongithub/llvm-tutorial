@@ -188,9 +188,9 @@ auto updated_count = builder.CreateSub(current_count, step);
 builder.CreateStore(updated_count, a_count);
 ```
 
-After handling the loop counter, implment the main task. One is allowed to fetch arguments using LLVM API `VAArgInst` from variable length arguments. This API works as `va_arg` in C/C++, but you have strictly match the type of argument which you are fetching. `VAArgInst` can be cast into `Value` using `llvm::dyn_cast_or_null`(is like C++’s `dynamic_cast<>`).
+After handling the loop counter, implment the main task. One is allowed to fetch arguments using LLVM API `VAArgInst` from variable length arguments. This API works as `va_arg` in C/C++, the second argument have to be strictly matched the type of argument which you are fetching. `VAArgInst` can be cast into `Value` using `llvm::dyn_cast_or_null`(is like C++’s `dynamic_cast<>`).
 
-In case that you want to check type of the value which is fetched from `va_list` strictly, you have to add a code to check and cast, and pass the original struct which includes types of arguments from callee.
+In case that you want to check type of the value which is fetched from `va_list` strictly, you have to add a code to check and cast, and pass the original struct which includes types of arguments from a callee.
 
 ```
 auto *value_from_va_list = new llvm::VAArgInst(pointer_va_list, llvm::Type::getDoubleTy(*context), "value", loop_block);

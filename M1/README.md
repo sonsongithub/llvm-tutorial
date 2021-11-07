@@ -4,14 +4,10 @@
 
 ### Build cmake
 
-Maybe, we have to build and install cmake from source code.
-We can build and install cmake using vanilla sources from [cmake.org](https://cmake.org).
+I recommend that you install `cmake` via [cmake.org](https://cmake.org).
+You can use `cmake` with adding the path to `PATH`. 
 
-```
-tar zxf cmake-3.19.1.tar.gz
-cd cmake-3.19.1
-make install
-```
+<img width="342" alt="スクリーンショット 2021-11-07 13 06 29" src="https://user-images.githubusercontent.com/33768/140631963-1cb4ed7d-fc69-4883-8081-7619ccbc841c.png">
 
 ### Build LLVM
 

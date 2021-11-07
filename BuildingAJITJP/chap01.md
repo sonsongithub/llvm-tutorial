@@ -1,3 +1,5 @@
+[オリジナル](https://llvm.org/docs/tutorial/BuildingAJIT1.html)
+
 # Introduction
 
 注意：　このチュートリアルは，最近のORCのアップデートに追いついていません．１〜２章までの文章は更新されていますが，３〜５章のコードは，コンパイル・実行できますが，更新されていません．

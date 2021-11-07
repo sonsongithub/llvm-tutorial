@@ -1,3 +1,5 @@
+[オリジナル](https://llvm.org/docs/tutorial/BuildingAJIT2.html)
+
 # Building a JIT: Adding Optimizations – An introduction to ORC Layers
 
 Chapter 2 Introduction
@@ -5,19 +7,36 @@ Optimizing Modules using the IRTransformLayer
 Full Code Listing
 This tutorial is under active development. It is incomplete and details may change frequently. Nonetheless we invite you to try it out as it stands, and we welcome any feedback.
 
+# JITを作ろう：最適化を加える - ORCレイヤーの紹介
+
+## 第二章　IRTransformLayerを使ったモジュールの最適化
+
+このチュートリアルは鋭意執筆中です．
+完全ではありませんし，たびたび，詳細が変わりうります．
+しかしながら，このまま読んで，試していただき，フィードバックを待ちたいと思います．
+
 ## Introduction
-Warning: This tutorial is currently being updated to account for ORC API changes. Only Chapters 1 and 2 are up-to-date.
 
-Example code from Chapters 3 to 5 will compile and run, but has not been updated
+> 注意：　このチュートリアルは，最近のORCのアップデートに追いついていません．１〜２章までの文章は更新されていますが，３〜５章のコードは，コンパイル・実行できますが，更新されていません．
 
-Welcome to Chapter 2 of the “Building an ORC-based JIT in LLVM” tutorial. In Chapter 1 of this series we examined a basic JIT class, KaleidoscopeJIT, that could take LLVM IR modules as input and produce executable code in memory. KaleidoscopeJIT was able to do this with relatively little code by composing two off-the-shelf ORC layers: IRCompileLayer and ObjectLinkingLayer, to do much of the heavy lifting.
+第二章にようこそ．
+このシリーズの第一章では，基本的なJITクラス`KaleidoscopeJIT`を取り上げました．
+`KaleidoscopeJIT`クラスは，LLVM IRモジュールを引数にとり，メモリ上に実行可能なコードを生成します．
+KaleidoscopeJITは，`IRCompileLayer`と`ObjectLinkingLayer`というORCのレイヤーをそのまま組み合わせることで，従来は，重労働であったのに，短いコードでこれを実現します．
+この章では，`KaleidoscopeJIT`にIRの最適化機能を追加するために，`IRTransformLayer`という新しいレイヤーを使って，ORCのレイヤーの概念をさらに学んでいきます．
 
-In this layer we’ll learn more about the ORC layer concept by using a new layer, IRTransformLayer, to add IR optimization support to KaleidoscopeJIT.
+## `IRTransformLayer`を使ったモジュールの最適化
 
-## Optimizing Modules using the IRTransformLayer
-In Chapter 4 of the “Implementing a language with LLVM” tutorial series the llvm FunctionPassManager is introduced as a means for optimizing LLVM IR. Interested readers may read that chapter for details, but in short: to optimize a Module we create an llvm::FunctionPassManager instance, configure it with a set of optimizations, then run the PassManager on a Module to mutate it into a (hopefully) more optimized but semantically equivalent form. In the original tutorial series the FunctionPassManager was created outside the KaleidoscopeJIT and modules were optimized before being added to it. In this Chapter we will make optimization a phase of our JIT instead. For now this will provide us a motivation to learn more about ORC layers, but in the long term making optimization part of our JIT will yield an important benefit: When we begin lazily compiling code (i.e. deferring compilation of each function until the first time it’s run) having optimization managed by our JIT will allow us to optimize lazily too, rather than having to do all our optimization up-front.
+“Implementing a language with LLVM”チュートリアルの四章で，llvmの`FunctionPassManager`をLLVM IRを最適化するための手段として紹介しました．
+この章の細部まで読んだ読者は，それが最適化の集合体であり，`Module`上でそのPassManagerを走らせると，意味的には同じ形式で，モジュールをより最適なものに変換するものである（つまり手短に言うと，我々は，モジュールを最適化するために`llvm::FunctionPassManager`のインスタンスを作成する）理解していると思います．
+チュートリアルでは，`FunctionPassManager`は，`KaleidoscopeJIT`の外側で作成され，モジュールは，それが追加される前に最適化されました．
+この章では，代わりに，JITのタイミングで最適化するようにします．
 
-To add optimization support to our JIT we will take the KaleidoscopeJIT from Chapter 1 and compose an ORC IRTransformLayer on top. We will look at how the IRTransformLayer works in more detail below, but the interface is simple: the constructor for this layer takes a reference to the execution session and the layer below (as all layers do) plus an IR optimization function that it will apply to each Module that is added via addModule:
+ここから，この章では，ORCのレイヤーについて学ぶ動機を解説しますが，長期的な観点から，最適化をJITの一部とすることは，重要な利益になります．
+つまり，遅延コンパイルを始める時に（例えば，それぞれの関数のコンパイルを初めて実行される時まで遅延するなど），JITによって最適化が管理されているということは，すべての最適化を事前に行うのではなく，最適化も遅延実行できることを意味します．
+
+JITに最適化のサポートを追加するため、`KaleidoscopeJIT`を第一章から取得し、ORCの`IRTransformLayer`をトップに組み込む。まず、`IRTransformLayer`がどのように動作するのかを見ていくことにします。しかし、そのインタフェースは、シンプルです。つまり、このレイヤーのためのコンストラクタは、execution sessionとレイヤー、さらにIR最適化関数への参照を引数に取ります。
+そのIR最適化関数は、`addModule`通して、それぞれの`Module`へ適応されます。
 
 ```
 class KaleidoscopeJIT {
@@ -45,7 +64,9 @@ public:
   }
 ```
 
-Our extended KaleidoscopeJIT class starts out the same as it did in Chapter 1, but after the CompileLayer we introduce a new member, TransformLayer, which sits on top of our CompileLayer. We initialize our OptimizeLayer with a reference to the ExecutionSession and output layer (standard practice for layers), along with a transform function. For our transform function we supply our classes optimizeModule static method.
+拡張した`KaleidoscopeJIT`クラスは，第一章と同じところから始まるが，`CompileLayer`の後に，`TransformLayer`を新しいメンバとして加える．
+`OptimizeLayer`を`ExecutionSession`とアウトプットレイヤー，変換の関数への参照で初期化する．
+我々が使う変換の関数は，`optimizeModule`のstaticメソッドとして定義する．
 
 ```
 // ...
@@ -55,7 +76,7 @@ return cantFail(OptimizeLayer.addModule(std::move(M),
 // ...
 ```
 
-Next we need to update our addModule method to replace the call to CompileLayer::add with a call to OptimizeLayer::add instead.
+次に，`CompileLayer::add`の呼び出しを，`OptimizeLayer::add`の呼び出しに置き換えるため，`addModule`メソッドを更新する必要がある．
 
 ```
 static Expected<ThreadSafeModule>
@@ -79,9 +100,18 @@ optimizeModule(ThreadSafeModule M, const MaterializationResponsibility &R) {
 }
 ```
 
-At the bottom of our JIT we add a private method to do the actual optimization: optimizeModule. This function takes the module to be transformed as input (as a ThreadSafeModule) along with a reference to a reference to a new class: MaterializationResponsibility. The MaterializationResponsibility argument can be used to query JIT state for the module being transformed, such as the set of definitions in the module that JIT’d code is actively trying to call/access. For now we will ignore this argument and use a standard optimization pipeline. To do this we set up a FunctionPassManager, add some passes to it, run it over every function in the module, and then return the mutated module. The specific optimizations are the same ones used in Chapter 4 of the “Implementing a language with LLVM” tutorial series. Readers may visit that chapter for a more in-depth discussion of these, and of IR optimization in general.
+JITの最後の部分で，実際の最適化を実行するためのプライベートメソッド`optimizeModule`を追加します．
+この関数は，`ThreadSafeModule`型で，入力して変換されるモジュールと，新しいクラス`MaterializationResponsibility`への参照を引数に取ります．
+`MaterializationResponsibility`引数は，例えば，JITコンパイルされたコードが呼び出し，アクセスを試みる，モジュール内の定義と言った，モジュールを変換するために，JITの状態を問い合わせるために使われます．
+ここからは，この引数は無視することにして，一般的な最適化のパイプラインを使います．
+これをするために， `FunctionPassManager`をセットアップし，いくつかのパスをそれに追加し，モジュールにある関数ごとに最適化を実行させ，変換されたモジュールを受け取ります．
+指定した最適化は，“Implementing a language with LLVM”の４章で使ったものと同じです．
+これらの議論や一般的なIRの最適化を深く理解するなら，その章を読み直した方がよいでしょう．
 
-And that’s it in terms of changes to KaleidoscopeJIT: When a module is added via addModule the OptimizeLayer will call our optimizeModule function before passing the transformed module on to the CompileLayer below. Of course, we could have called optimizeModule directly in our addModule function and not gone to the bother of using the IRTransformLayer, but doing so gives us another opportunity to see how layers compose. It also provides a neat entry point to the layer concept itself, because IRTransformLayer is one of the simplest layers that can be implemented.
+`KaleidoscopeJIT`に加える変更という観点では，モジュールが`addModule`を通して追加されるとき，`OptimizeLayer`は，以下で説明する`CompileLayer`へ変換されたモジュールを渡す前に，`optimizeModule`関数を呼ぶことになります．
+もちろん，わざわざ`IRTransformLayer`を使わずに，`addModule`関数の中で`optimizeModule`を直接呼び出すこともできますが，そうすることで，レイヤーがどのように構成されているかを確認することができます．
+そして，それは，レイヤーのコンセプトにわかりやすい取っ付きを与えてくれます．
+なぜなら，`IRTransformLayer`は，その中でももっとも実装しやすい，シンプルなレイヤーだからです．
 
 ```
 // From IRTransformLayer.h:
@@ -132,9 +162,19 @@ void IRTransformLayer::emit(MaterializationResponsibility R,
 }
 ```
 
-This is the whole definition of IRTransformLayer, from llvm/include/llvm/ExecutionEngine/Orc/IRTransformLayer.h and llvm/lib/ExecutionEngine/Orc/IRTransformLayer.cpp. This class is concerned with two very simple jobs: (1) Running every IR Module that is emitted via this layer through the transform function object, and (2) implementing the ORC IRLayer interface (which itself conforms to the general ORC Layer concept, more on that below). Most of the class is straightforward: a typedef for the transform function, a constructor to initialize the members, a setter for the transform function value, and a default no-op transform. The most important method is emit as this is half of our IRLayer interface. The emit method applies our transform to each module that it is called on and, if the transform succeeds, passes the transformed module to the base layer. If the transform fails, our emit function calls MaterializationResponsibility::failMaterialization (this JIT clients who may be waiting on other threads know that the code they were waiting for has failed to compile) and logs the error with the execution session before bailing out.
+これが，`llvm/include/llvm/ExecutionEngine/Orc/IRTransformLayer.h`と`llvm/lib/ExecutionEngine/Orc/IRTransformLayer.cpp`にある`IRTransformLayer`の実装です．
+このクラスは，ふたつとてもシンプルな仕事にかかわっています．
+一つ目は，変換関数のオブジェクトを介し，このレイヤーを通じて発行されたIRモジュールを実行することです．
+ふたつ目は，ORCの`IRLayer`のインタフェースを実装することです(このクラス自身がORCレイヤーのコンセプトに沿ったものになっています．詳細は後で解説します)．
 
-The other half of the IRLayer interface we inherit unmodified from the IRLayer class:
+クラスのほとんどは，安直に実装されています．
+変換の関数のためのtypedef，メンバーの初期化をしてるコンストラクタ，変換関数のセッター，デフォルトの最適化なしの変換です．
+最も重要なメソッドは，`emit`で，このメソッドは，`IRLayer`のインタフェースの半分を占めます．
+`emit`は，我々の変換をそれぞれのモジュールに施す．
+`emit`が呼ばれたときに，変換が成功すると，ベースレイヤーに変換されたモジュールを渡す．
+また，変換が失敗したときには，この関数は，そのスレッドを終了する前に，`MaterializationResponsibility::failMaterialization`（このJITクライアントは，コンパイルを待っているコードがコンパイルに失敗したことを他の待機中のスレッド上，知ることになる）を呼び，エラーログを出します．
+
+`IRLayer`のインタフェースの残りの半分は，`IRLayer`クラスから，何も変えずに流用することにします．
 
 ```
 Error IRLayer::add(JITDylib &JD, ThreadSafeModule TSM, VModuleKey K) {
@@ -143,23 +183,41 @@ Error IRLayer::add(JITDylib &JD, ThreadSafeModule TSM, VModuleKey K) {
 }
 ```
 
-This code, from llvm/lib/ExecutionEngine/Orc/Layer.cpp, adds a ThreadSafeModule to a given JITDylib by wrapping it up in a MaterializationUnit (in this case a BasicIRLayerMaterializationUnit). Most layers that derived from IRLayer can rely on this default implementation of the add method.
+`llvm/lib/ExecutionEngine/Orc/Layer.cpp`からとってきたこのコードは，`ThreadSafeModule`を`MaterializationUnit`の中に（このケースでは，`BasicIRLayerMaterializationUnit`）くるんで，与えられた`JITDylib`に追加します．
+ほとんどのレイヤーは，`IRLayer`から派生したもので，`add`メソッドのデフォルト実装をベースにしています．
 
-These two operations, add and emit, together constitute the layer concept: A layer is a way to wrap a portion of a compiler pipeline (in this case the “opt” phase of an LLVM compiler) whose API is is opaque to ORC in an interface that allows ORC to invoke it when needed. The add method takes an module in some input program representation (in this case an LLVM IR module) and stores it in the target JITDylib, arranging for it to be passed back to the Layer’s emit method when any symbol defined by that module is requested. Layers can compose neatly by calling the ‘emit’ method of a base layer to complete their work. For example, in this tutorial our IRTransformLayer calls through to our IRCompileLayer to compile the transformed IR, and our IRCompileLayer in turn calls our ObjectLayer to link the object file produced by our compiler.
+`add`と`emit`というふたつの操作は，一緒にレイヤーのコンセプトを構成しています．
+つまり，レイヤーは，コンパイラのパイプラインの一部をラップしたものであり，そのパイプラインのAPIは，ORCに対して透過的ではないが，インタフェースを使って，必要な時にORCから呼び出すことができる．
+`add`メソッドは，入力として，コードの表現を`module`で受け取り（今回は，LLVM IR module），ターゲットとなる`JITDylib`に保存する．また，`add`メソッドは，受け取ったモジュール内で定義されたシンボルが要求されたときに，レイヤーの`emit`メソッドに，モジュールに引き渡すように処理する．
+この一連のタスクは，ベースレイヤーの`emit`メソッドを呼び出すことで，完了する．
+例えば，このチュートリアルの`IRTransformLayer`は，変換されたIRをコンパイルするために，`IRCompileLayer`に引き渡し，`IRCompileLayer`は，コンパイラによって生成されたオブジェクトファイルをその場でリンクするために，`ObjectLayer`へ引き渡すといった風になる．
 
-So far we have learned how to optimize and compile our LLVM IR, but we have not focused on when compilation happens. Our current REPL is eager: Each function definition is optimized and compiled as soon as it is referenced by any other code, regardless of whether it is ever called at runtime. In the next chapter we will introduce fully lazy compilation, in which functions are not compiled until they are first called at run-time. At this point the trade-offs get much more interesting: the lazier we are, the quicker we can start executing the first function, but the more often we will have to pause to compile newly encountered functions. If we only code-gen lazily, but optimize eagerly, we will have a longer startup time (as everything is optimized) but relatively short pauses as each function just passes through code-gen. If we both optimize and code-gen lazily we can start executing the first function more quickly, but we will have longer pauses as each function has to be both optimized and code-gen’d when it is first executed. Things become even more interesting if we consider interproceedural optimizations like inlining, which must be performed eagerly. These are complex trade-offs, and there is no one-size-fits all solution to them, but by providing composable layers we leave the decisions to the person implementing the JIT, and make it easy for them to experiment with different configurations.
+ここまで，LLVM IRを最適化し，コンパイルする方法について学んできたが，コンパイルが必要になるタイミングについては，考えてこなかった．
+我々が作ったREPLは，それぞれの関数が他のコードから参照されると，それが実行時に実際に呼ばれるかどうかにかかわらず，すぐに最適化され，コンパイルされます．
+次章では，我々は，その関数が実行時に初めて呼ばれるまでコンパイルしない，完全な遅延コンパイルを紹介します．
+ここで，面白いトレードオフが発生する．
+それは，遅延コンパイルを行うと，一番最初の関数を実行するまでの時間は短縮されるが，新しい関数が呼び出されるたびにコンパイルのために一時的に処理を停止する必要が出てくることだ．
+もし，コード生成だけを遅延化し，最適化は念入りにやりたいのであれば，起動時にすべてを最適化するように長い処理時間を使うことになるが，関数呼び出し時には，それぞれの関数のコード生成だけをやることになるので，相対的に停止時間が短くなるかもしれない．
+最適化とコード生成の両方を遅延したいときには，最初の関数呼び出しは，かなり高速化できるが，ある関数が最初に実行されたときに，最適化とコード生成の両方を行う必要があるので，停止時間は，より長くなる．
+インラインのような手続き間の最適化を考慮する場合は，問題はよりおもしろいものになる．
+これらは，複雑なトレードオフであり，それらに合うすべての解決方法は存在しないが，構成可能なレイヤーを提供することで，JITを実装しようとする人に，その決定権を渡すことはできる．
+そして，その実装する人は，レイヤーをうまく組み合わせ，異なる状況下での実験を簡単に組み立てられる．
 
-Next: Adding Per-function Lazy Compilation
+## コードリスト
 
-## Full Code Listing
-Here is the complete code listing for our running example with an IRTransformLayer added to enable optimization. To build this example, use:
+# コンパイル
 
-# Compile
+```
 clang++ -g toy.cpp `llvm-config --cxxflags --ldflags --system-libs --libs core orcjit native` -O3 -o toy
-# Run
-./toy
-Here is the code:
+```
 
+# 実行
+
+```
+./toy
+```
+
+```
 //===- KaleidoscopeJIT.h - A simple JIT for Kaleidoscope --------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -272,3 +330,4 @@ private:
 } // end namespace llvm
 
 #endif // LLVM_EXECUTIONENGINE_ORC_KALEIDOSCOPEJIT_H
+```
