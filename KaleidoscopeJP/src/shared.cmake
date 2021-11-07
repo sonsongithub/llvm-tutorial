@@ -1,7 +1,9 @@
+
+find_program(LLVM_CONFIG "llvm-config")
+set(LLVM_CONFIG "/Users/sonson/Downloads/llvm-11.0.0.src/build/bin/llvm-config")
+
 macro(SET_LLVM_COMPILE_CONFIG)
     set(LLVM_COMPILE_CONFIG)
-    find_program(LLVM_CONFIG "llvm-config")
-    set(LLVM_CONFIG "<path to llvm-config>")
     if(LLVM_CONFIG)
         message(STATUS "Found LLVM_CONFIG as ${LLVM_CONFIG}")
         set(CONFIG_COMMAND ${LLVM_CONFIG}
@@ -26,15 +28,15 @@ endmacro(SET_LLVM_COMPILE_CONFIG)
 
 macro(SET_LLVM_LINK_CONFIG)
     set(LLVM_LINK_CONFIG)
-    find_program(LLVM_CONFIG "llvm-config")
-    set(LLVM_CONFIG "<path to llvm-config>")
     if(LLVM_CONFIG)
         message(STATUS "Found LLVM_CONFIG as ${LLVM_CONFIG}")
         set(CONFIG_COMMAND ${LLVM_CONFIG}
+            "--cxxflags"
             "--ldflags"
             "--libs"
             "--libfiles"
-            "--system-libs")
+            "--system-libs"
+            "core")
         execute_process(
             COMMAND ${CONFIG_COMMAND}
             RESULT_VARIABLE HAD_ERROR
